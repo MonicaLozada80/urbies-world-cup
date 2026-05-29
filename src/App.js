@@ -1,39 +1,26 @@
 import React, { useState, useEffect, useRef } from "react";
+import { initializeApp } from "firebase/app";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 
-// ── JSONBin config ──────────────────────────────────────────
-const BIN_ID  = "6a09eac7adc21f119ab3edae";
-const API_KEY = "$2a$10$2YqJVZetUOpBvhkDqAlD2u4URBf9qXImY5mDxKB7B.U/zFK.HH8vC";
-const BIN_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
-const HEADERS  = { "Content-Type":"application/json", "X-Master-Key": API_KEY };
+// ── Firebase config ──────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCY9ehA9EU6X209PPp9kCF_T8kvMK4GGFQ",
+  authDomain: "urbies-world-cup.firebaseapp.com",
+  projectId: "urbies-world-cup",
+  storageBucket: "urbies-world-cup.firebasestorage.app",
+  messagingSenderId: "561511617896",
+  appId: "1:561511617896:web:b58c607e5395e77d2432dd"
+};
+const firebaseApp = initializeApp(firebaseConfig);
+const fsdb = getFirestore(firebaseApp);
+const DATA_DOC = doc(fsdb, "urbies", "data");
 
 async function dbRead() {
-  const r = await fetch(BIN_URL + "/latest", { headers: HEADERS });
-  const j = await r.json();
-  return j.record || {};
+  const snap = await getDoc(DATA_DOC);
+  return snap.exists() ? snap.data() : {};
 }
 async function dbWrite(data) {
-  let lastError;
-  for(let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const r = await fetch(BIN_URL, {
-        method: "PUT",
-        headers: HEADERS,
-        body: JSON.stringify(data)
-      });
-      if(!r.ok) {
-        const text = await r.text();
-        throw new Error("HTTP " + r.status + ": " + text);
-      }
-      const j = await r.json();
-      if(!j.record) throw new Error("Respuesta inesperada de JSONBin");
-      return j;
-    } catch(e) {
-      lastError = e;
-      console.error("dbWrite intento " + attempt + " fallido:", e.message);
-      if(attempt < 3) await new Promise(res => setTimeout(res, 1000 * attempt));
-    }
-  }
-  throw lastError;
+  await setDoc(DATA_DOC, data);
 }
 // ────────────────────────────────────────────────────────────
 
@@ -129,7 +116,6 @@ function isMatchLocked(dateStr) {
   const d = MATCH_DATES[dateStr]; if(!d) return false;
   return new Date() >= new Date(d + "T05:00:00Z");
 }
-
 function calcPts(pred, real) {
   if(!real||real.h===""||real.a==="") return null;
   const ph=parseInt(pred.h),pa=parseInt(pred.a),rh=parseInt(real.h),ra=parseInt(real.a);
@@ -177,7 +163,7 @@ function UrbgLogoFull({width=280}) {
 
 export default function App() {
   const [user, setUser]           = useState(null);
-  const [db, setDb]               = useState({ predictions:{}, results:{}, passes:{} });
+  const [appDb, setAppDb]         = useState({ predictions:{}, results:{} });
   const [loginName, setLoginName] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [loginErr, setLoginErr]   = useState("");
@@ -186,45 +172,42 @@ export default function App() {
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
-  const [liveStatus, setLiveStatus] = useState("idle");
-  const [lastUpdate, setLastUpdate] = useState(null);
   const [participants, setParticipants] = useState(DEFAULT_PARTICIPANTS);
   const [showChangePass, setShowChangePass] = useState(false);
-  // Admin state
+  const [newPass1, setNewPass1]   = useState("");
+  const [newPass2, setNewPass2]   = useState("");
+  const [passMsg, setPassMsg]     = useState("");
+  // Admin — participantes
   const [adminNewName, setAdminNewName] = useState("");
   const [adminNewPass, setAdminNewPass] = useState("");
   const [adminEditIdx, setAdminEditIdx] = useState(null);
   const [adminEditName, setAdminEditName] = useState("");
   const [adminEditPass, setAdminEditPass] = useState("");
-  const [adminMsg, setAdminMsg] = useState("");
-  const [newPass1, setNewPass1]   = useState("");
-  const [newPass2, setNewPass2]   = useState("");
-  const [passMsg, setPassMsg]     = useState("");
-  const dbRef = useRef(db);
-  dbRef.current = db;
+  const [adminMsg, setAdminMsg]   = useState("");
+  // Admin — resultados
+  const [resFilterGroup, setResFilterGroup] = useState("ALL");
+  const [editResults, setEditResults] = useState({});
+  const [resMsg, setResMsg]       = useState("");
+
+  const appDbRef = useRef(appDb);
+  appDbRef.current = appDb;
   const participantsRef = useRef(participants);
   participantsRef.current = participants;
 
   useEffect(() => { loadData(); }, []);
-  useEffect(() => {
-    if(!user) return;
-    const t = setTimeout(fetchLiveResults, 3000);
-    const iv = setInterval(fetchLiveResults, 3*60*1000);
-    return () => { clearTimeout(t); clearInterval(iv); };
-  }, [user]);
 
   async function loadData() {
-    setLoading(false);
     try {
       const data = await dbRead();
-      setDb({ predictions: data.predictions||{}, results: data.results||{}, passes: data.passes||{} });
+      setAppDb({ predictions: data.predictions||{}, results: data.results||{} });
       if(data.participants && data.participants.length > 0) setParticipants(data.participants);
     } catch(e) { console.error("Error cargando datos", e); }
+    setLoading(false);
   }
 
   async function saveDb(next) {
     setSaving(true);
-    setDb(next);
+    setAppDb(next);
     try {
       await dbWrite({...next, participants: participantsRef.current});
       setSaved(true); setTimeout(()=>setSaved(false),1500);
@@ -234,41 +217,30 @@ export default function App() {
 
   async function saveParticipants(next) {
     setParticipants(next);
-    try { await dbWrite({...db, participants: next}); } catch(e) {}
+    try { await dbWrite({...appDbRef.current, participants: next}); } catch(e) { console.error(e); }
   }
 
-  // ✅ ÚNICA función changePassword — guarda en participants Y en db.passes
   async function changePassword() {
     if(newPass1.length < 4) { setPassMsg("❌ Mínimo 4 caracteres"); return; }
     if(newPass1 !== newPass2) { setPassMsg("❌ Las contraseñas no coinciden"); return; }
     setPassMsg("⏳ Guardando...");
-    const nextParticipants = participants.map(p => p.name === user ? {...p, pass: newPass1} : p);
-    const nextDb = {...db, passes: {...db.passes, [user]: newPass1}};
+    const nextParticipants = participantsRef.current.map(p => p.name === user ? {...p, pass: newPass1} : p);
     try {
-      // Primero leer el estado actual de JSONBin para no perder datos
-      const current = await dbRead();
-      const toSave = {
-        ...current,
-        passes: {...(current.passes||{}), [user]: newPass1},
-        participants: nextParticipants
-      };
-      await dbWrite(toSave);
-      // Solo actualizar estado local si el guardado fue exitoso
+      await dbWrite({...appDbRef.current, participants: nextParticipants});
       setParticipants(nextParticipants);
-      setDb(nextDb);
       setPassMsg("✅ ¡Contraseña cambiada!");
       setNewPass1(""); setNewPass2("");
       setTimeout(() => { setShowChangePass(false); setPassMsg(""); }, 2000);
     } catch(e) {
-      console.error("Error cambiando contraseña:", e);
       setPassMsg("❌ Error: " + e.message);
     }
   }
 
+  // ── Admin: participantes ──
   function adminAddParticipant() {
     const name = adminNewName.trim().toUpperCase();
     const pass = adminNewPass.trim();
-    if(!name || !pass) { setAdminMsg("❌ Completa nombre y contraseña"); return; }
+    if(!name||!pass) { setAdminMsg("❌ Completa nombre y contraseña"); return; }
     if(participants.find(p=>p.name===name)) { setAdminMsg("❌ Ese nombre ya existe"); return; }
     const next = [...participants, {name, pass}];
     saveParticipants(next);
@@ -276,21 +248,17 @@ export default function App() {
     setAdminMsg("✅ Participante agregado");
     setTimeout(()=>setAdminMsg(""),2000);
   }
-
   function adminDeleteParticipant(name) {
     if(name===ADMIN) { setAdminMsg("❌ No puedes eliminar al admin"); return; }
     if(!window.confirm(`¿Eliminar a ${name}?`)) return;
     saveParticipants(participants.filter(p=>p.name!==name));
-    setAdminMsg("✅ Participante eliminado");
-    setTimeout(()=>setAdminMsg(""),2000);
+    setAdminMsg("✅ Eliminado"); setTimeout(()=>setAdminMsg(""),2000);
   }
-
   function adminStartEdit(idx) {
     setAdminEditIdx(idx);
     setAdminEditName(participants[idx].name);
     setAdminEditPass(participants[idx].pass);
   }
-
   function adminSaveEdit() {
     const name = adminEditName.trim().toUpperCase();
     const pass = adminEditPass.trim();
@@ -298,63 +266,58 @@ export default function App() {
     const next = participants.map((p,i)=>i===adminEditIdx?{name,pass}:p);
     saveParticipants(next);
     setAdminEditIdx(null);
-    setAdminMsg("✅ Participante actualizado");
-    setTimeout(()=>setAdminMsg(""),2000);
+    setAdminMsg("✅ Actualizado"); setTimeout(()=>setAdminMsg(""),2000);
   }
 
-  async function fetchLiveResults() {
-    setLiveStatus("loading");
+  // ── Admin: resultados manuales ──
+  function handleResChange(matchId, side, val) {
+    setEditResults(prev => ({
+      ...prev,
+      [matchId]: { ...(prev[matchId]||{h:"",a:""}), [side]: val }
+    }));
+  }
+  async function saveResult(matchId) {
+    const r = editResults[matchId];
+    if(!r || r.h==="" || r.a==="") { setResMsg("❌ Ingresa ambos marcadores"); setTimeout(()=>setResMsg(""),2000); return; }
+    if(isNaN(parseInt(r.h))||isNaN(parseInt(r.a))) { setResMsg("❌ Solo números"); setTimeout(()=>setResMsg(""),2000); return; }
+    setResMsg("⏳ Guardando...");
+    const nextResults = {...appDbRef.current.results, [matchId]: {h: String(parseInt(r.h)), a: String(parseInt(r.a))}};
+    const nextDb = {...appDbRef.current, results: nextResults};
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:2000,
-          tools:[{type:"web_search_20250305",name:"web_search"}],
-          messages:[{role:"user",content:`Search for FIFA World Cup 2026 group stage results. Find confirmed scores for any matches already played from this list: ${MATCHES_RAW.map(m=>`${m.h} vs ${m.a} (${m.date} Jun 2026)`).join(", ")}. Return ONLY valid JSON, no markdown. Format: {"results":[{"home":"TeamName","away":"TeamName","homeScore":0,"awayScore":0}]}. Only confirmed final scores.`}]
-        })
-      });
-      const data = await res.json();
-      const text = data.content.filter(i=>i.type==="text").map(i=>i.text).join("\n");
-      const m = text.match(/\{[\s\S]*"results"[\s\S]*?\]/);
-      if(m) {
-        let js = m[0]; if(!js.endsWith("}")) js+="}";
-        const parsed = JSON.parse(js);
-        const cur = dbRef.current;
-        const nr = {...cur.results}; let updated=false;
-        if(parsed.results&&Array.isArray(parsed.results)){
-          parsed.results.forEach(r=>{
-            if(r.homeScore==null) return;
-            const match=MATCHES_RAW.find(mm=>{
-              const mh=mm.h.toLowerCase(),ma=mm.a.toLowerCase();
-              const rh=(r.home||"").toLowerCase(),ra=(r.away||"").toLowerCase();
-              return (mh.includes(rh.slice(0,5))||rh.includes(mh.slice(0,5)))&&(ma.includes(ra.slice(0,5))||ra.includes(ma.slice(0,5)));
-            });
-            if(match){nr[match.id]={h:String(r.homeScore),a:String(r.awayScore)};updated=true;}
-          });
-        }
-        if(updated) await saveDb({...cur, results:nr});
-      }
-      setLiveStatus("ok"); setLastUpdate(new Date());
-    } catch(e){ setLiveStatus("err"); }
+      await dbWrite({...nextDb, participants: participantsRef.current});
+      setAppDb(nextDb);
+      setEditResults(prev => { const n={...prev}; delete n[matchId]; return n; });
+      setResMsg("✅ Resultado guardado");
+    } catch(e) { setResMsg("❌ Error: " + e.message); }
+    setTimeout(()=>setResMsg(""),2500);
+  }
+  async function clearResult(matchId) {
+    if(!window.confirm("¿Borrar este resultado?")) return;
+    const nextResults = {...appDbRef.current.results};
+    delete nextResults[matchId];
+    const nextDb = {...appDbRef.current, results: nextResults};
+    try {
+      await dbWrite({...nextDb, participants: participantsRef.current});
+      setAppDb(nextDb);
+      setResMsg("✅ Resultado borrado");
+    } catch(e) { setResMsg("❌ Error: " + e.message); }
+    setTimeout(()=>setResMsg(""),2000);
   }
 
-  function getPass(name){ return db.passes[name]||participants.find(p=>p.name===name)?.pass||""; }
-
+  function getPass(name){ return participants.find(p=>p.name===name)?.pass||""; }
   function login(){
     const p=participants.find(p=>p.name===loginName);
     if(p&&loginPass===getPass(loginName)){setUser(p.name);setLoginErr("");}
     else setLoginErr("❌ Nombre o contraseña incorrectos");
   }
-
   async function savePrediction(matchId,h,a){
     const key=`${user}_${matchId}`;
-    await saveDb({...db, predictions:{...db.predictions,[key]:{h,a}}});
+    await saveDb({...appDb, predictions:{...appDb.predictions,[key]:{h,a}}});
   }
-
   function getScore(participant){
     let pts=0;
     MATCHES_RAW.forEach(m=>{
-      const pred=db.predictions[`${participant}_${m.id}`],real=db.results[m.id];
+      const pred=appDb.predictions[`${participant}_${m.id}`],real=appDb.results[m.id];
       if(pred&&real){const p=calcPts(pred,real);if(p!==null)pts+=p;}
     });
     return pts;
@@ -362,7 +325,9 @@ export default function App() {
   function getScoreMap(){ return participants.map(p=>({name:p.name,pts:getScore(p.name)})).sort((a,b)=>b.pts-a.pts); }
 
   const filteredMatches = filterGroup==="ALL"?MATCHES_RAW:MATCHES_RAW.filter(m=>m.g===filterGroup);
+  const resFilteredMatches = resFilterGroup==="ALL"?MATCHES_RAW:MATCHES_RAW.filter(m=>m.g===resFilterGroup);
   const inp = {width:"100%",padding:"11px 14px",borderRadius:10,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:16,outline:"none",boxSizing:"border-box"};
+  const numInp = {width:46,textAlign:"center",padding:"8px 2px",borderRadius:10,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.12)",color:"white",fontSize:20,fontWeight:900,outline:"none"};
 
   if(loading) return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:BG}}>
@@ -418,8 +383,8 @@ export default function App() {
           <div>
             <div style={{fontWeight:900,fontSize:14,letterSpacing:1}}>URBIES WC <span style={{color:"#f97316"}}>2026</span></div>
             <div style={{fontSize:11,color:"#7aadda",marginTop:1}}>
-              <span style={{color:"white",fontWeight:700}}>{user}</span> · #{myRank} · <span style={{color:"#f97316",fontWeight:800}}>{myPts} pts</span> &nbsp;
-              {saving?"💾":liveStatus==="ok"?"🟢":liveStatus==="loading"?"🟡":"⚫"}
+              <span style={{color:"white",fontWeight:700}}>{user}</span> · #{myRank} · <span style={{color:"#f97316",fontWeight:800}}>{myPts} pts</span>
+              &nbsp;{saving?"💾":""}
             </div>
           </div>
         </div>
@@ -465,13 +430,6 @@ export default function App() {
         ))}
       </div>
 
-      {lastUpdate&&(
-        <div style={{background:"rgba(34,197,94,0.1)",borderBottom:"1px solid rgba(34,197,94,0.2)",padding:"6px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{color:"#4ade80",fontSize:12,fontWeight:600}}>🟢 Resultados en vivo · cada 3 min</span>
-          <button onClick={fetchLiveResults} style={{background:"transparent",border:"none",color:"#4ade80",fontSize:12,cursor:"pointer",fontWeight:700}}>↻ Actualizar</button>
-        </div>
-      )}
-
       <div style={{padding:14,maxWidth:700,margin:"0 auto"}}>
         {/* FILTRO */}
         {(view==="predicciones"||view==="apuestas"||view==="grupos")&&(
@@ -486,20 +444,18 @@ export default function App() {
 
         {/* PRONÓSTICOS */}
         {view==="predicciones"&&filteredMatches.map(m=>{
-          const pred=db.predictions[`${user}_${m.id}`]||{h:"",a:""};
-          const real=db.results[m.id];
+          const pred=appDb.predictions[`${user}_${m.id}`]||{h:"",a:""};
+          const real=appDb.results[m.id];
           const pts=pred.h!==""&&pred.a!==""&&real?calcPts(pred,real):null;
           const played=real&&real.h!=="";
           const locked=isMatchLocked(m.date);
           return (
             <div key={m.id} style={{background:CARD,borderRadius:16,padding:"14px 16px",marginBottom:10,border:`1px solid ${locked?"rgba(255,255,255,0.08)":GC[m.g]+"40"}`,opacity:locked&&!pred.h?0.6:1}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11,flexWrap:"wrap",gap:6}}>
                 <span style={{background:GC[m.g],borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>Grupo {m.g}</span>
                 <span style={{color:"#7aadda",fontSize:12,fontWeight:600}}>{m.date}</span>
                 {locked&&!played&&<span style={{background:"#1e3a5f",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#7aadda",fontWeight:700}}>🔒 Cerrado</span>}
-                {pts!==null&&<span style={{background:pts===3?"#22c55e":pts===1?"#3b82f6":"#ef4444",borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>
-                  {pts===3?"⭐ 3 pts":pts===1?"✓ 1 pt":"✗ 0 pts"}
-                </span>}
+                {pts!==null&&<span style={{background:pts===3?"#22c55e":pts===1?"#3b82f6":"#ef4444",borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{pts===3?"⭐ 3 pts":pts===1?"✓ 1 pt":"✗ 0 pts"}</span>}
                 {played&&pts===null&&<span style={{background:"#2a4a6e",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#7aadda"}}>Jugado</span>}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -510,11 +466,11 @@ export default function App() {
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <input type="number" min="0" max="20" value={pred.h} disabled={locked}
                     onChange={e=>!locked&&savePrediction(m.id,e.target.value,pred.a)}
-                    style={{width:46,textAlign:"center",padding:"8px 2px",borderRadius:10,border:`1px solid ${locked?"rgba(255,255,255,0.08)":BORDER}`,background:locked?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.1)",color:locked?"#445":"white",fontSize:22,fontWeight:900,outline:"none",cursor:locked?"not-allowed":"text"}}/>
+                    style={{...numInp,background:locked?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.1)",color:locked?"#445":"white",cursor:locked?"not-allowed":"text"}}/>
                   <span style={{color:"#4a7a9b",fontWeight:900,fontSize:18}}>–</span>
                   <input type="number" min="0" max="20" value={pred.a} disabled={locked}
                     onChange={e=>!locked&&savePrediction(m.id,pred.h,e.target.value)}
-                    style={{width:46,textAlign:"center",padding:"8px 2px",borderRadius:10,border:`1px solid ${locked?"rgba(255,255,255,0.08)":BORDER}`,background:locked?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.1)",color:locked?"#445":"white",fontSize:22,fontWeight:900,outline:"none",cursor:locked?"not-allowed":"text"}}/>
+                    style={{...numInp,background:locked?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.1)",color:locked?"#445":"white",cursor:locked?"not-allowed":"text"}}/>
                 </div>
                 <div style={{flex:1,textAlign:"left"}}>
                   <div style={{fontSize:28}}>{FLAG[m.a]||"🏳"}</div>
@@ -536,13 +492,13 @@ export default function App() {
               <p style={{color:"#7aadda",fontSize:12,margin:0}}>Pronósticos de todos los participantes</p>
             </div>
             {filteredMatches.map(m=>{
-              const real=db.results[m.id];
+              const real=appDb.results[m.id];
               const played=real&&real.h!=="";
-              const anyPred=participants.some(p=>db.predictions[`${p.name}_${m.id}`]?.h!=="");
+              const anyPred=participants.some(p=>appDb.predictions[`${p.name}_${m.id}`]?.h!=="");
               if(!anyPred) return null;
               return (
                 <div key={m.id} style={{background:CARD,borderRadius:16,padding:"14px 16px",marginBottom:12,border:`1px solid ${GC[m.g]}40`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:6}}>
                     <span style={{background:GC[m.g],borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>Grupo {m.g}</span>
                     <span style={{color:"white",fontWeight:800,fontSize:13}}>{FLAG[m.h]} {m.h} vs {m.a} {FLAG[m.a]}</span>
                     <span style={{color:"#7aadda",fontSize:11}}>{m.date}</span>
@@ -554,7 +510,7 @@ export default function App() {
                   )}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                     {participants.map(p=>{
-                      const pred=db.predictions[`${p.name}_${m.id}`];
+                      const pred=appDb.predictions[`${p.name}_${m.id}`];
                       if(!pred||pred.h==="") return (
                         <div key={p.name} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 12px",opacity:0.4}}>
                           <span style={{fontSize:12,fontWeight:700,color:"#7aadda"}}>{p.name}</span>
@@ -580,65 +536,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ADMIN — solo visible para MONICA */}
-        {view==="admin"&&user===ADMIN&&(
-          <div>
-            <div style={{textAlign:"center",marginBottom:20}}>
-              <div style={{fontSize:32}}>⚙️</div>
-              <h2 style={{color:"white",fontWeight:900,fontSize:18,margin:"6px 0 2px"}}>PANEL ADMINISTRADOR</h2>
-              <p style={{color:"#7aadda",fontSize:12,margin:0}}>Solo visible para Mónica</p>
-            </div>
-
-            {adminMsg&&<div style={{background:adminMsg.startsWith("✅")?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)",border:`1px solid ${adminMsg.startsWith("✅")?"rgba(74,222,128,0.4)":"rgba(248,113,113,0.4)"}`,borderRadius:10,padding:"10px 16px",marginBottom:16,textAlign:"center",color:adminMsg.startsWith("✅")?"#4ade80":"#f87171",fontWeight:700}}>{adminMsg}</div>}
-
-            <div style={{background:CARD,borderRadius:16,padding:18,marginBottom:16,border:`1px solid ${BORDER}`}}>
-              <h3 style={{color:"#f97316",fontSize:14,fontWeight:800,margin:"0 0 14px",letterSpacing:1}}>➕ AGREGAR PARTICIPANTE</h3>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                <input value={adminNewName} onChange={e=>setAdminNewName(e.target.value)}
-                  placeholder="Nombre (ej: PEDRO)"
-                  style={{flex:1,minWidth:120,padding:"9px 12px",borderRadius:9,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
-                <input value={adminNewPass} onChange={e=>setAdminNewPass(e.target.value)}
-                  placeholder="Contraseña"
-                  style={{flex:1,minWidth:120,padding:"9px 12px",borderRadius:9,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
-                <button onClick={adminAddParticipant}
-                  style={{padding:"9px 18px",borderRadius:9,background:"linear-gradient(90deg,#1d6fb8,#f97316)",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:14}}>
-                  Agregar
-                </button>
-              </div>
-            </div>
-
-            <div style={{background:CARD,borderRadius:16,padding:18,border:`1px solid ${BORDER}`}}>
-              <h3 style={{color:"#f97316",fontSize:14,fontWeight:800,margin:"0 0 14px",letterSpacing:1}}>👥 PARTICIPANTES ({participants.length})</h3>
-              {participants.map((p,i)=>(
-                <div key={p.name} style={{marginBottom:8}}>
-                  {adminEditIdx===i ? (
-                    <div style={{display:"flex",gap:8,flexWrap:"wrap",background:"rgba(249,115,22,0.1)",borderRadius:10,padding:10,border:"1px solid rgba(249,115,22,0.3)"}}>
-                      <input value={adminEditName} onChange={e=>setAdminEditName(e.target.value)}
-                        style={{flex:1,minWidth:100,padding:"8px 10px",borderRadius:8,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
-                      <input value={adminEditPass} onChange={e=>setAdminEditPass(e.target.value)}
-                        style={{flex:1,minWidth:100,padding:"8px 10px",borderRadius:8,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
-                      <button onClick={adminSaveEdit} style={{padding:"8px 14px",borderRadius:8,background:"#22c55e",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:13}}>✓ Guardar</button>
-                      <button onClick={()=>setAdminEditIdx(null)} style={{padding:"8px 14px",borderRadius:8,background:"rgba(255,255,255,0.08)",color:"#aaa",border:`1px solid ${BORDER}`,cursor:"pointer",fontSize:13}}>Cancelar</button>
-                    </div>
-                  ) : (
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.04)",borderRadius:10,padding:"10px 14px",border:`1px solid ${BORDER}`}}>
-                      <div>
-                        <span style={{fontWeight:800,fontSize:14,color:p.name===ADMIN?"#f97316":"white"}}>{p.name}</span>
-                        {p.name===ADMIN&&<span style={{fontSize:11,color:"#f97316",marginLeft:6}}>(admin)</span>}
-                        <div style={{fontSize:11,color:"#4a7a9b",marginTop:2}}>Pass: {p.pass}</div>
-                      </div>
-                      <div style={{display:"flex",gap:8}}>
-                        <button onClick={()=>adminStartEdit(i)} style={{padding:"6px 12px",borderRadius:8,background:"rgba(59,130,246,0.2)",color:"#60a5fa",border:"1px solid rgba(59,130,246,0.3)",cursor:"pointer",fontSize:12,fontWeight:700}}>✏️ Editar</button>
-                        {p.name!==ADMIN&&<button onClick={()=>adminDeleteParticipant(p.name)} style={{padding:"6px 12px",borderRadius:8,background:"rgba(239,68,68,0.2)",color:"#f87171",border:"1px solid rgba(239,68,68,0.3)",cursor:"pointer",fontSize:12,fontWeight:700}}>🗑️ Eliminar</button>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* TABLA */}
         {view==="tabla"&&(
           <div>
@@ -647,33 +544,19 @@ export default function App() {
               <p style={{color:"#7aadda",fontSize:13,marginTop:12,letterSpacing:3,fontWeight:600}}>TABLA DE POSICIONES</p>
             </div>
             <div style={{background:"rgba(255,255,255,0.07)",border:`1px solid ${BORDER}`,borderRadius:14,padding:"14px 16px",marginBottom:18,display:"flex",justifyContent:"space-around",flexWrap:"wrap",gap:10}}>
-              <div style={{textAlign:"center"}}>
-                <div style={{fontSize:24}}>⭐</div>
-                <div style={{color:"#4ade80",fontWeight:900,fontSize:20}}>3 pts</div>
-                <div style={{color:"#a8c8e8",fontSize:12,fontWeight:600}}>Marcador exacto</div>
-              </div>
-              <div style={{textAlign:"center"}}>
-                <div style={{fontSize:24}}>✓</div>
-                <div style={{color:"#60a5fa",fontWeight:900,fontSize:20}}>1 pt</div>
-                <div style={{color:"#a8c8e8",fontSize:12,fontWeight:600}}>Resultado</div>
-              </div>
-              <div style={{textAlign:"center"}}>
-                <div style={{fontSize:24}}>✗</div>
-                <div style={{color:"#f87171",fontWeight:900,fontSize:20}}>0 pts</div>
-                <div style={{color:"#a8c8e8",fontSize:12,fontWeight:600}}>Fallo</div>
-              </div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:24}}>⭐</div><div style={{color:"#4ade80",fontWeight:900,fontSize:20}}>3 pts</div><div style={{color:"#a8c8e8",fontSize:12,fontWeight:600}}>Marcador exacto</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:24}}>✓</div><div style={{color:"#60a5fa",fontWeight:900,fontSize:20}}>1 pt</div><div style={{color:"#a8c8e8",fontSize:12,fontWeight:600}}>Resultado</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:24}}>✗</div><div style={{color:"#f87171",fontWeight:900,fontSize:20}}>0 pts</div><div style={{color:"#a8c8e8",fontSize:12,fontWeight:600}}>Fallo</div></div>
             </div>
             {scoreMap.map((s,i)=>(
               <div key={s.name} style={{background:s.name===user?"rgba(249,115,22,0.15)":CARD,borderRadius:16,padding:"16px 20px",marginBottom:10,display:"flex",alignItems:"center",gap:14,border:s.name===user?"1px solid rgba(249,115,22,0.5)":`1px solid ${BORDER}`}}>
-                <div style={{fontSize:30,minWidth:40,textAlign:"center"}}>
-                  {i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4a7a9b",fontSize:18,fontWeight:800}}>#{i+1}</span>}
-                </div>
+                <div style={{fontSize:30,minWidth:40,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4a7a9b",fontSize:18,fontWeight:800}}>#{i+1}</span>}</div>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:900,fontSize:17}}>{s.name} {s.name===user&&<span style={{color:"#f97316",fontSize:13}}>(tú)</span>}</div>
                   <div style={{fontSize:13,marginTop:4}}>
-                    <span style={{color:"#4ade80"}}>⭐ {MATCHES_RAW.filter(m=>{const p=db.predictions[`${s.name}_${m.id}`],r=db.results[m.id];return p&&r&&calcPts(p,r)===3;}).length} exactos</span>
+                    <span style={{color:"#4ade80"}}>⭐ {MATCHES_RAW.filter(m=>{const p=appDb.predictions[`${s.name}_${m.id}`],r=appDb.results[m.id];return p&&r&&calcPts(p,r)===3;}).length} exactos</span>
                     {" · "}
-                    <span style={{color:"#60a5fa"}}>✓ {MATCHES_RAW.filter(m=>{const p=db.predictions[`${s.name}_${m.id}`],r=db.results[m.id];return p&&r&&calcPts(p,r)===1;}).length} resultado</span>
+                    <span style={{color:"#60a5fa"}}>✓ {MATCHES_RAW.filter(m=>{const p=appDb.predictions[`${s.name}_${m.id}`],r=appDb.results[m.id];return p&&r&&calcPts(p,r)===1;}).length} resultado</span>
                   </div>
                 </div>
                 <div style={{textAlign:"right"}}>
@@ -690,9 +573,7 @@ export default function App() {
           <div>
             {Object.entries(GROUPS).filter(([g])=>filterGroup==="ALL"||g===filterGroup).map(([g,teams])=>(
               <div key={g} style={{background:CARD,borderRadius:16,padding:16,marginBottom:14,border:`1px solid ${GC[g]}40`}}>
-                <div style={{marginBottom:12}}>
-                  <span style={{background:GC[g],borderRadius:20,padding:"4px 14px",fontSize:12,fontWeight:800}}>GRUPO {g}</span>
-                </div>
+                <div style={{marginBottom:12}}><span style={{background:GC[g],borderRadius:20,padding:"4px 14px",fontSize:12,fontWeight:800}}>GRUPO {g}</span></div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
                   {teams.map(t=>(
                     <div key={t} style={{display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.05)",borderRadius:10,padding:"10px 12px"}}>
@@ -703,14 +584,12 @@ export default function App() {
                 </div>
                 <div style={{borderTop:`1px solid ${BORDER}`,paddingTop:10}}>
                   {MATCHES_RAW.filter(m=>m.g===g).map(m=>{
-                    const real=db.results[m.id];
+                    const real=appDb.results[m.id];
                     return (
                       <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid rgba(255,255,255,0.05)`}}>
                         <span style={{fontSize:12,color:"#7aadda",minWidth:52,fontWeight:600}}>{m.date}</span>
                         <span style={{fontSize:13,flex:1,textAlign:"right",fontWeight:700,color:"white"}}>{FLAG[m.h]} {m.h}</span>
-                        <span style={{fontSize:13,fontWeight:900,minWidth:60,textAlign:"center",color:real&&real.h!==""?"#4ade80":"#3a6080"}}>
-                          {real&&real.h!==""?`${real.h}–${real.a}`:"vs"}
-                        </span>
+                        <span style={{fontSize:13,fontWeight:900,minWidth:60,textAlign:"center",color:real&&real.h!==""?"#4ade80":"#3a6080"}}>{real&&real.h!==""?`${real.h}–${real.a}`:"vs"}</span>
                         <span style={{fontSize:13,flex:1,fontWeight:700,color:"white"}}>{m.a} {FLAG[m.a]}</span>
                       </div>
                     );
@@ -718,6 +597,112 @@ export default function App() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ADMIN */}
+        {view==="admin"&&user===ADMIN&&(
+          <div>
+            <div style={{textAlign:"center",marginBottom:20}}>
+              <div style={{fontSize:32}}>⚙️</div>
+              <h2 style={{color:"white",fontWeight:900,fontSize:18,margin:"6px 0 2px"}}>PANEL ADMINISTRADOR</h2>
+              <p style={{color:"#7aadda",fontSize:12,margin:0}}>Solo visible para Mónica</p>
+            </div>
+
+            {/* ── SECCIÓN RESULTADOS ── */}
+            <div style={{background:CARD,borderRadius:16,padding:18,marginBottom:16,border:"1px solid rgba(74,222,128,0.3)"}}>
+              <h3 style={{color:"#4ade80",fontSize:15,fontWeight:800,margin:"0 0 6px",letterSpacing:1}}>⚽ CARGAR RESULTADOS</h3>
+              <p style={{color:"#7aadda",fontSize:12,margin:"0 0 14px"}}>Ingresa el marcador final de cada partido jugado.</p>
+
+              {resMsg&&<div style={{background:resMsg.startsWith("✅")?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)",border:`1px solid ${resMsg.startsWith("✅")?"rgba(74,222,128,0.4)":"rgba(248,113,113,0.4)"}`,borderRadius:10,padding:"10px 16px",marginBottom:14,textAlign:"center",color:resMsg.startsWith("✅")?"#4ade80":"#f87171",fontWeight:700}}>{resMsg}</div>}
+
+              {/* Filtro grupos */}
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
+                <button onClick={()=>setResFilterGroup("ALL")} style={{padding:"5px 12px",borderRadius:20,border:"none",background:resFilterGroup==="ALL"?"#4ade80":"rgba(255,255,255,0.08)",color:resFilterGroup==="ALL"?"#000":"white",cursor:"pointer",fontSize:11,fontWeight:700}}>Todos</button>
+                {Object.keys(GROUPS).map(g=>(
+                  <button key={g} onClick={()=>setResFilterGroup(g)}
+                    style={{padding:"5px 10px",borderRadius:20,border:"none",background:resFilterGroup===g?GC[g]:"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:11,fontWeight:700}}>{g}</button>
+                ))}
+              </div>
+
+              {resFilteredMatches.map(m=>{
+                const real=appDb.results[m.id];
+                const edit=editResults[m.id]||{h:"",a:""};
+                const hasResult=real&&real.h!=="";
+                return (
+                  <div key={m.id} style={{background:"rgba(255,255,255,0.04)",borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${hasResult?"rgba(74,222,128,0.25)":GC[m.g]+"30"}`}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:180}}>
+                        <span style={{background:GC[m.g],borderRadius:12,padding:"2px 8px",fontSize:10,fontWeight:800}}>{m.g}</span>
+                        <span style={{fontSize:13,fontWeight:700,color:"white"}}>{FLAG[m.h]} {m.h} <span style={{color:"#4a7a9b"}}>vs</span> {m.a} {FLAG[m.a]}</span>
+                        <span style={{fontSize:11,color:"#7aadda"}}>{m.date}</span>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        {hasResult&&!editResults[m.id]&&(
+                          <span style={{color:"#4ade80",fontWeight:900,fontSize:16,minWidth:60,textAlign:"center"}}>{real.h} – {real.a}</span>
+                        )}
+                        <input type="number" min="0" max="20" placeholder={hasResult?real.h:"L"} value={edit.h}
+                          onChange={e=>handleResChange(m.id,"h",e.target.value)}
+                          style={{width:44,textAlign:"center",padding:"7px 2px",borderRadius:8,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.1)",color:"white",fontSize:18,fontWeight:900,outline:"none"}}/>
+                        <span style={{color:"#4a7a9b",fontWeight:900}}>–</span>
+                        <input type="number" min="0" max="20" placeholder={hasResult?real.a:"V"} value={edit.a}
+                          onChange={e=>handleResChange(m.id,"a",e.target.value)}
+                          style={{width:44,textAlign:"center",padding:"7px 2px",borderRadius:8,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.1)",color:"white",fontSize:18,fontWeight:900,outline:"none"}}/>
+                        <button onClick={()=>saveResult(m.id)}
+                          style={{padding:"7px 14px",borderRadius:8,background:"linear-gradient(90deg,#22c55e,#16a34a)",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:13}}>
+                          {hasResult?"✏️":"✅"}
+                        </button>
+                        {hasResult&&<button onClick={()=>clearResult(m.id)}
+                          style={{padding:"7px 10px",borderRadius:8,background:"rgba(239,68,68,0.2)",color:"#f87171",border:"1px solid rgba(239,68,68,0.3)",cursor:"pointer",fontSize:13}}>🗑️</button>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── SECCIÓN PARTICIPANTES ── */}
+            {adminMsg&&<div style={{background:adminMsg.startsWith("✅")?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)",border:`1px solid ${adminMsg.startsWith("✅")?"rgba(74,222,128,0.4)":"rgba(248,113,113,0.4)"}`,borderRadius:10,padding:"10px 16px",marginBottom:16,textAlign:"center",color:adminMsg.startsWith("✅")?"#4ade80":"#f87171",fontWeight:700}}>{adminMsg}</div>}
+            <div style={{background:CARD,borderRadius:16,padding:18,marginBottom:16,border:`1px solid ${BORDER}`}}>
+              <h3 style={{color:"#f97316",fontSize:14,fontWeight:800,margin:"0 0 14px",letterSpacing:1}}>➕ AGREGAR PARTICIPANTE</h3>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <input value={adminNewName} onChange={e=>setAdminNewName(e.target.value)} placeholder="Nombre (ej: PEDRO)"
+                  style={{flex:1,minWidth:120,padding:"9px 12px",borderRadius:9,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
+                <input value={adminNewPass} onChange={e=>setAdminNewPass(e.target.value)} placeholder="Contraseña"
+                  style={{flex:1,minWidth:120,padding:"9px 12px",borderRadius:9,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
+                <button onClick={adminAddParticipant}
+                  style={{padding:"9px 18px",borderRadius:9,background:"linear-gradient(90deg,#1d6fb8,#f97316)",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:14}}>Agregar</button>
+              </div>
+            </div>
+            <div style={{background:CARD,borderRadius:16,padding:18,border:`1px solid ${BORDER}`}}>
+              <h3 style={{color:"#f97316",fontSize:14,fontWeight:800,margin:"0 0 14px",letterSpacing:1}}>👥 PARTICIPANTES ({participants.length})</h3>
+              {participants.map((p,i)=>(
+                <div key={p.name} style={{marginBottom:8}}>
+                  {adminEditIdx===i ? (
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",background:"rgba(249,115,22,0.1)",borderRadius:10,padding:10,border:"1px solid rgba(249,115,22,0.3)"}}>
+                      <input value={adminEditName} onChange={e=>setAdminEditName(e.target.value)}
+                        style={{flex:1,minWidth:100,padding:"8px 10px",borderRadius:8,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
+                      <input value={adminEditPass} onChange={e=>setAdminEditPass(e.target.value)}
+                        style={{flex:1,minWidth:100,padding:"8px 10px",borderRadius:8,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
+                      <button onClick={adminSaveEdit} style={{padding:"8px 14px",borderRadius:8,background:"#22c55e",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:13}}>✓</button>
+                      <button onClick={()=>setAdminEditIdx(null)} style={{padding:"8px 14px",borderRadius:8,background:"rgba(255,255,255,0.08)",color:"#aaa",border:`1px solid ${BORDER}`,cursor:"pointer",fontSize:13}}>✕</button>
+                    </div>
+                  ) : (
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.04)",borderRadius:10,padding:"10px 14px",border:`1px solid ${BORDER}`}}>
+                      <div>
+                        <span style={{fontWeight:800,fontSize:14,color:p.name===ADMIN?"#f97316":"white"}}>{p.name}</span>
+                        {p.name===ADMIN&&<span style={{fontSize:11,color:"#f97316",marginLeft:6}}>(admin)</span>}
+                        <div style={{fontSize:11,color:"#4a7a9b",marginTop:2}}>Pass: {p.pass}</div>
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>adminStartEdit(i)} style={{padding:"6px 12px",borderRadius:8,background:"rgba(59,130,246,0.2)",color:"#60a5fa",border:"1px solid rgba(59,130,246,0.3)",cursor:"pointer",fontSize:12,fontWeight:700}}>✏️</button>
+                        {p.name!==ADMIN&&<button onClick={()=>adminDeleteParticipant(p.name)} style={{padding:"6px 12px",borderRadius:8,background:"rgba(239,68,68,0.2)",color:"#f87171",border:"1px solid rgba(239,68,68,0.3)",cursor:"pointer",fontSize:12,fontWeight:700}}>🗑️</button>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
