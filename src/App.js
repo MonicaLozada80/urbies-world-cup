@@ -163,7 +163,7 @@ function UrbgLogoFull({width=280}) {
 
 export default function App() {
   const [user, setUser]           = useState(null);
-  const [appDb, setAppDb]         = useState({ predictions:{}, results:{}, locked:{} });
+  const [appDb, setAppDb]         = useState({ predictions:{}, results:{}, locked:{}, extraMatches:[] });
   const [loginName, setLoginName] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [loginErr, setLoginErr]   = useState("");
@@ -188,6 +188,12 @@ export default function App() {
   const [resFilterGroup, setResFilterGroup] = useState("ALL");
   const [editResults, setEditResults] = useState({});
   const [resMsg, setResMsg]       = useState("");
+  // Admin — partidos extra (fases eliminatorias)
+  const [newMatchH, setNewMatchH] = useState("");
+  const [newMatchA, setNewMatchA] = useState("");
+  const [newMatchDate, setNewMatchDate] = useState("");
+  const [newMatchPhase, setNewMatchPhase] = useState("Octavos");
+  const [matchMsg, setMatchMsg]   = useState("");
 
   const appDbRef = useRef(appDb);
   appDbRef.current = appDb;
@@ -199,7 +205,7 @@ export default function App() {
   async function loadData() {
     try {
       const data = await dbRead();
-      setAppDb({ predictions: data.predictions||{}, results: data.results||{}, locked: data.locked||{} });
+      setAppDb({ predictions: data.predictions||{}, results: data.results||{}, locked: data.locked||{}, extraMatches: data.extraMatches||[] });
       if(data.participants && data.participants.length > 0) setParticipants(data.participants);
     } catch(e) { console.error("Error cargando datos", e); }
     setLoading(false);
@@ -281,7 +287,7 @@ export default function App() {
     if(!r || r.h==="" || r.a==="") { setResMsg("❌ Ingresa ambos marcadores"); setTimeout(()=>setResMsg(""),2000); return; }
     if(isNaN(parseInt(r.h))||isNaN(parseInt(r.a))) { setResMsg("❌ Solo números"); setTimeout(()=>setResMsg(""),2000); return; }
     setResMsg("⏳ Guardando...");
-    const nextResults = {...appDbRef.current.results, [matchId]: {h: String(parseInt(r.h)), a: String(parseInt(r.a))}};
+    const nextResults = {...appDbRef.current.results, [Number(matchId)]: {h: String(parseInt(r.h)), a: String(parseInt(r.a))}};
     const nextDb = {...appDbRef.current, results: nextResults};
     try {
       await dbWrite({...nextDb, participants: participantsRef.current});
@@ -294,7 +300,7 @@ export default function App() {
   async function clearResult(matchId) {
     if(!window.confirm("¿Borrar este resultado?")) return;
     const nextResults = {...appDbRef.current.results};
-    delete nextResults[matchId];
+    delete nextResults[Number(matchId)];
     const nextDb = {...appDbRef.current, results: nextResults};
     try {
       await dbWrite({...nextDb, participants: participantsRef.current});
@@ -311,12 +317,12 @@ export default function App() {
     else setLoginErr("❌ Nombre o contraseña incorrectos");
   }
   function isLocked(matchId, dateStr) {
-    return appDb.locked[matchId] || isMatchLocked(dateStr);
+    return appDb.locked[Number(matchId)] || isMatchLocked(dateStr);
   }
 
   async function toggleLock(matchId) {
     const cur = appDbRef.current;
-    const nextLocked = {...cur.locked, [matchId]: !cur.locked[matchId]};
+    const nextLocked = {...cur.locked, [Number(matchId)]: !cur.locked[Number(matchId)]};
     const nextDb = {...cur, locked: nextLocked};
     try {
       await dbWrite({...nextDb, participants: participantsRef.current});
@@ -326,22 +332,67 @@ export default function App() {
     setTimeout(()=>setResMsg(""),2000);
   }
 
+  async function addExtraMatch() {
+    if(!newMatchH.trim()||!newMatchA.trim()||!newMatchDate.trim()){
+      setMatchMsg("❌ Completa todos los campos"); setTimeout(()=>setMatchMsg(""),2000); return;
+    }
+    const cur = appDbRef.current;
+    const existingExtras = cur.extraMatches||[];
+    const maxId = Math.max(1000, ...existingExtras.map(m=>m.id), ...[72]);
+    const newMatch = {
+      id: maxId+1,
+      g: newMatchPhase,
+      h: newMatchH.trim(),
+      a: newMatchA.trim(),
+      date: newMatchDate.trim(),
+      phase: newMatchPhase
+    };
+    const nextDb = {...cur, extraMatches:[...existingExtras, newMatch]};
+    try {
+      await dbWrite({...nextDb, participants: participantsRef.current});
+      setAppDb(nextDb);
+      setNewMatchH(""); setNewMatchA(""); setNewMatchDate("");
+      setMatchMsg("✅ Partido agregado");
+    } catch(e) { setMatchMsg("❌ Error: "+e.message); }
+    setTimeout(()=>setMatchMsg(""),2500);
+  }
+
+  async function deleteExtraMatch(matchId) {
+    if(!window.confirm("¿Eliminar este partido?")) return;
+    const cur = appDbRef.current;
+    const nextExtras = (cur.extraMatches||[]).filter(m=>m.id!==matchId);
+    const nextResults = {...cur.results};
+    delete nextResults[String(matchId)];
+    const nextLocked = {...cur.locked};
+    delete nextLocked[String(matchId)];
+    const nextDb = {...cur, extraMatches:nextExtras, results:nextResults, locked:nextLocked};
+    try {
+      await dbWrite({...nextDb, participants: participantsRef.current});
+      setAppDb(nextDb);
+      setMatchMsg("✅ Partido eliminado");
+    } catch(e) { setMatchMsg("❌ Error: "+e.message); }
+    setTimeout(()=>setMatchMsg(""),2000);
+  }
+
   async function savePrediction(matchId,h,a){
     const key=`${user}_${matchId}`;
     await saveDb({...appDb, predictions:{...appDb.predictions,[key]:{h,a}}});
   }
   function getScore(participant){
     let pts=0;
-    MATCHES_RAW.forEach(m=>{
-      const pred=appDb.predictions[`${participant}_${m.id}`],real=appDb.results[m.id];
+    const all=[...MATCHES_RAW, ...(appDb.extraMatches||[])];
+    all.forEach(m=>{
+      const pred=appDb.predictions[`${participant}_${m.id}`];
+      const real=appDb.results[m.id]||appDb.results[String(m.id)];
       if(pred&&real){const p=calcPts(pred,real);if(p!==null)pts+=p;}
     });
     return pts;
   }
   function getScoreMap(){ return participants.map(p=>({name:p.name,pts:getScore(p.name)})).sort((a,b)=>b.pts-a.pts); }
 
-  const filteredMatches = filterGroup==="ALL"?MATCHES_RAW:MATCHES_RAW.filter(m=>m.g===filterGroup);
-  const resFilteredMatches = resFilterGroup==="ALL"?MATCHES_RAW:MATCHES_RAW.filter(m=>m.g===resFilterGroup);
+  const allMatches = [...MATCHES_RAW, ...(appDb.extraMatches||[])];
+  const filteredMatches = filterGroup==="ALL"?allMatches:allMatches.filter(m=>m.g===filterGroup||m.phase===filterGroup);
+  const resFilteredMatches = resFilterGroup==="ALL"?allMatches:allMatches.filter(m=>m.g===resFilterGroup||m.phase===resFilterGroup);
   const inp = {width:"100%",padding:"11px 14px",borderRadius:10,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:16,outline:"none",boxSizing:"border-box"};
   const numInp = {width:46,textAlign:"center",padding:"8px 2px",borderRadius:10,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.12)",color:"white",fontSize:20,fontWeight:900,outline:"none"};
 
@@ -449,19 +500,32 @@ export default function App() {
       <div style={{padding:14,maxWidth:700,margin:"0 auto"}}>
         {/* FILTRO */}
         {(view==="predicciones"||view==="apuestas"||view==="grupos")&&(
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-            <button onClick={()=>setFilterGroup("ALL")} style={{padding:"6px 14px",borderRadius:20,border:"none",background:filterGroup==="ALL"?"#f97316":"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>Todos</button>
-            {Object.keys(GROUPS).map(g=>(
-              <button key={g} onClick={()=>setFilterGroup(g)}
-                style={{padding:"6px 12px",borderRadius:20,border:"none",background:filterGroup===g?GC[g]:"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>{g}</button>
-            ))}
+          <div style={{marginBottom:16}}>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
+              <button onClick={()=>setFilterGroup("ALL")} style={{padding:"6px 14px",borderRadius:20,border:"none",background:filterGroup==="ALL"?"#f97316":"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>Todos</button>
+              {Object.keys(GROUPS).map(g=>(
+                <button key={g} onClick={()=>setFilterGroup(g)}
+                  style={{padding:"6px 12px",borderRadius:20,border:"none",background:filterGroup===g?GC[g]:"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>{g}</button>
+              ))}
+            </div>
+            {["Octavos","Cuartos","Semifinal","3er Puesto","Final"].some(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase))&&(
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:6,borderTop:"1px solid rgba(255,255,255,0.08)"}}>
+                <span style={{color:"#7aadda",fontSize:11,fontWeight:700,padding:"6px 4px",alignSelf:"center"}}>Eliminatorias:</span>
+                {["Octavos","Cuartos","Semifinal","3er Puesto","Final"].filter(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase)).map(phase=>(
+                  <button key={phase} onClick={()=>setFilterGroup(phase)}
+                    style={{padding:"6px 12px",borderRadius:20,border:"1px solid rgba(29,111,184,0.4)",background:filterGroup===phase?"#1d6fb8":"rgba(29,111,184,0.15)",color:filterGroup===phase?"white":"#7aadda",cursor:"pointer",fontSize:12,fontWeight:700}}>
+                    {phase==="Octavos"?"⚔️ Octavos":phase==="Cuartos"?"🏅 Cuartos":phase==="Semifinal"?"🔥 Semifinal":phase==="3er Puesto"?"🥉 3er Puesto":"🏆 Final"}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {/* PRONÓSTICOS */}
         {view==="predicciones"&&filteredMatches.map(m=>{
           const pred=appDb.predictions[`${user}_${m.id}`]||{h:"",a:""};
-          const real=appDb.results[m.id];
+          const real=appDb.results[m.id]||appDb.results[String(m.id)];
           const pts=pred.h!==""&&pred.a!==""&&real?calcPts(pred,real):null;
           const played=real&&real.h!=="";
           const locked=isLocked(m.id, m.date);
@@ -469,7 +533,7 @@ export default function App() {
           return (
             <div key={m.id} style={{background:CARD,borderRadius:16,padding:"14px 16px",marginBottom:10,border:`1px solid ${locked?"rgba(255,255,255,0.08)":GC[m.g]+"40"}`,opacity:locked&&!pred.h?0.6:1}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11,flexWrap:"wrap",gap:6}}>
-                <span style={{background:GC[m.g],borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>Grupo {m.g}</span>
+                <span style={{background:m.phase?("#1d4ed8"):(GC[m.g]||"#64748b"),borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{m.phase||`Grupo ${m.g}`}</span>
                 <span style={{color:"#7aadda",fontSize:12,fontWeight:600}}>{m.date}</span>
                 {locked&&!played&&<span style={{background:manualLocked?"#7c3aed":"#1e3a5f",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#7aadda",fontWeight:700}}>{manualLocked?"🔒 Admin":"🔒 Fecha"}</span>}
                 {pts!==null&&<span style={{background:pts===3?"#22c55e":pts===1?"#3b82f6":"#ef4444",borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{pts===3?"⭐ 3 pts":pts===1?"✓ 1 pt":"✗ 0 pts"}</span>}
@@ -509,14 +573,14 @@ export default function App() {
               <p style={{color:"#7aadda",fontSize:12,margin:0}}>Pronósticos de todos los participantes</p>
             </div>
             {filteredMatches.map(m=>{
-              const real=appDb.results[m.id];
+              const real=appDb.results[m.id]||appDb.results[String(m.id)];
               const played=real&&real.h!=="";
               const anyPred=participants.some(p=>appDb.predictions[`${p.name}_${m.id}`]?.h!=="");
               if(!anyPred) return null;
               return (
                 <div key={m.id} style={{background:CARD,borderRadius:16,padding:"14px 16px",marginBottom:12,border:`1px solid ${GC[m.g]}40`}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:6}}>
-                    <span style={{background:GC[m.g],borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>Grupo {m.g}</span>
+                    <span style={{background:m.phase?("#1d4ed8"):(GC[m.g]||"#64748b"),borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{m.phase||`Grupo ${m.g}`}</span>
                     <span style={{color:"white",fontWeight:800,fontSize:13}}>{FLAG[m.h]} {m.h} vs {m.a} {FLAG[m.a]}</span>
                     <span style={{color:"#7aadda",fontSize:11}}>{m.date}</span>
                   </div>
@@ -571,9 +635,9 @@ export default function App() {
                 <div style={{flex:1}}>
                   <div style={{fontWeight:900,fontSize:17}}>{s.name} {s.name===user&&<span style={{color:"#f97316",fontSize:13}}>(tú)</span>}</div>
                   <div style={{fontSize:13,marginTop:4}}>
-                    <span style={{color:"#4ade80"}}>⭐ {MATCHES_RAW.filter(m=>{const p=appDb.predictions[`${s.name}_${m.id}`],r=appDb.results[m.id];return p&&r&&calcPts(p,r)===3;}).length} exactos</span>
+                    <span style={{color:"#4ade80"}}>⭐ {[...MATCHES_RAW,...(appDb.extraMatches||[])].filter(m=>{const p=appDb.predictions[`${s.name}_${m.id}`],r=appDb.results[m.id]||appDb.results[String(m.id)];return p&&r&&calcPts(p,r)===3;}).length} exactos</span>
                     {" · "}
-                    <span style={{color:"#60a5fa"}}>✓ {MATCHES_RAW.filter(m=>{const p=appDb.predictions[`${s.name}_${m.id}`],r=appDb.results[m.id];return p&&r&&calcPts(p,r)===1;}).length} resultado</span>
+                    <span style={{color:"#60a5fa"}}>✓ {[...MATCHES_RAW,...(appDb.extraMatches||[])].filter(m=>{const p=appDb.predictions[`${s.name}_${m.id}`],r=appDb.results[m.id]||appDb.results[String(m.id)];return p&&r&&calcPts(p,r)===1;}).length} resultado</span>
                   </div>
                 </div>
                 <div style={{textAlign:"right"}}>
@@ -588,6 +652,24 @@ export default function App() {
         {/* GRUPOS */}
         {view==="grupos"&&(
           <div>
+            {(filterGroup==="ALL"||["Octavos","Cuartos","Semifinal","3er Puesto","Final"].includes(filterGroup))&&(appDb.extraMatches||[]).filter(m=>filterGroup==="ALL"||m.phase===filterGroup).length>0&&(
+              <div style={{background:CARD,borderRadius:16,padding:16,marginBottom:14,border:"1px solid rgba(29,111,184,0.4)"}}>
+                <div style={{marginBottom:12}}><span style={{background:"#1d6fb8",borderRadius:20,padding:"4px 14px",fontSize:12,fontWeight:800}}>⚔️ FASE ELIMINATORIA</span></div>
+                <div style={{borderTop:`1px solid ${BORDER}`,paddingTop:10}}>
+                  {(appDb.extraMatches||[]).filter(m=>filterGroup==="ALL"||m.phase===filterGroup).map(m=>{
+                    const real=appDb.results[m.id]||appDb.results[String(m.id)];
+                    return (
+                      <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid rgba(255,255,255,0.05)`}}>
+                        <span style={{fontSize:11,color:"#60a5fa",minWidth:70,fontWeight:700}}>{m.phase} · {m.date}</span>
+                        <span style={{fontSize:13,flex:1,textAlign:"right",fontWeight:700,color:"white"}}>{FLAG[m.h]||"🏳"} {m.h}</span>
+                        <span style={{fontSize:13,fontWeight:900,minWidth:60,textAlign:"center",color:real&&real.h!==""?"#4ade80":"#3a6080"}}>{real&&real.h!==""?`${real.h}–${real.a}`:"vs"}</span>
+                        <span style={{fontSize:13,flex:1,fontWeight:700,color:"white"}}>{m.a} {FLAG[m.a]||"🏳"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {Object.entries(GROUPS).filter(([g])=>filterGroup==="ALL"||g===filterGroup).map(([g,teams])=>(
               <div key={g} style={{background:CARD,borderRadius:16,padding:16,marginBottom:14,border:`1px solid ${GC[g]}40`}}>
                 <div style={{marginBottom:12}}><span style={{background:GC[g],borderRadius:20,padding:"4px 14px",fontSize:12,fontWeight:800}}>GRUPO {g}</span></div>
@@ -601,7 +683,7 @@ export default function App() {
                 </div>
                 <div style={{borderTop:`1px solid ${BORDER}`,paddingTop:10}}>
                   {MATCHES_RAW.filter(m=>m.g===g).map(m=>{
-                    const real=appDb.results[m.id];
+                    const real=appDb.results[m.id]||appDb.results[String(m.id)];
                     return (
                       <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid rgba(255,255,255,0.05)`}}>
                         <span style={{fontSize:12,color:"#7aadda",minWidth:52,fontWeight:600}}>{m.date}</span>
@@ -633,17 +715,21 @@ export default function App() {
 
               {resMsg&&<div style={{background:resMsg.startsWith("✅")?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)",border:`1px solid ${resMsg.startsWith("✅")?"rgba(74,222,128,0.4)":"rgba(248,113,113,0.4)"}`,borderRadius:10,padding:"10px 16px",marginBottom:14,textAlign:"center",color:resMsg.startsWith("✅")?"#4ade80":"#f87171",fontWeight:700}}>{resMsg}</div>}
 
-              {/* Filtro grupos */}
+              {/* Filtro grupos + fases */}
               <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
                 <button onClick={()=>setResFilterGroup("ALL")} style={{padding:"5px 12px",borderRadius:20,border:"none",background:resFilterGroup==="ALL"?"#4ade80":"rgba(255,255,255,0.08)",color:resFilterGroup==="ALL"?"#000":"white",cursor:"pointer",fontSize:11,fontWeight:700}}>Todos</button>
                 {Object.keys(GROUPS).map(g=>(
                   <button key={g} onClick={()=>setResFilterGroup(g)}
                     style={{padding:"5px 10px",borderRadius:20,border:"none",background:resFilterGroup===g?GC[g]:"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:11,fontWeight:700}}>{g}</button>
                 ))}
+                {["Octavos","Cuartos","Semifinal","3er Puesto","Final"].filter(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase)).map(phase=>(
+                  <button key={phase} onClick={()=>setResFilterGroup(phase)}
+                    style={{padding:"5px 10px",borderRadius:20,border:"none",background:resFilterGroup===phase?"#1d6fb8":"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:11,fontWeight:700}}>{phase}</button>
+                ))}
               </div>
 
               {resFilteredMatches.map(m=>{
-                const real=appDb.results[m.id];
+                const real=appDb.results[m.id]||appDb.results[String(m.id)];
                 const edit=editResults[m.id]||{h:"",a:""};
                 const hasResult=real&&real.h!=="";
                 return (
