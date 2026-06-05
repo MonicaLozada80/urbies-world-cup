@@ -163,7 +163,7 @@ function UrbgLogoFull({width=280}) {
 
 export default function App() {
   const [user, setUser]           = useState(null);
-  const [appDb, setAppDb]         = useState({ predictions:{}, results:{} });
+  const [appDb, setAppDb]         = useState({ predictions:{}, results:{}, locked:{} });
   const [loginName, setLoginName] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [loginErr, setLoginErr]   = useState("");
@@ -199,7 +199,7 @@ export default function App() {
   async function loadData() {
     try {
       const data = await dbRead();
-      setAppDb({ predictions: data.predictions||{}, results: data.results||{} });
+      setAppDb({ predictions: data.predictions||{}, results: data.results||{}, locked: data.locked||{} });
       if(data.participants && data.participants.length > 0) setParticipants(data.participants);
     } catch(e) { console.error("Error cargando datos", e); }
     setLoading(false);
@@ -310,6 +310,22 @@ export default function App() {
     if(p&&loginPass===getPass(loginName)){setUser(p.name);setLoginErr("");}
     else setLoginErr("❌ Nombre o contraseña incorrectos");
   }
+  function isLocked(matchId, dateStr) {
+    return appDb.locked[matchId] || isMatchLocked(dateStr);
+  }
+
+  async function toggleLock(matchId) {
+    const cur = appDbRef.current;
+    const nextLocked = {...cur.locked, [matchId]: !cur.locked[matchId]};
+    const nextDb = {...cur, locked: nextLocked};
+    try {
+      await dbWrite({...nextDb, participants: participantsRef.current});
+      setAppDb(nextDb);
+      setResMsg(nextLocked[matchId] ? "🔒 Apuestas cerradas" : "🔓 Apuestas abiertas");
+    } catch(e) { setResMsg("❌ Error: " + e.message); }
+    setTimeout(()=>setResMsg(""),2000);
+  }
+
   async function savePrediction(matchId,h,a){
     const key=`${user}_${matchId}`;
     await saveDb({...appDb, predictions:{...appDb.predictions,[key]:{h,a}}});
@@ -448,13 +464,14 @@ export default function App() {
           const real=appDb.results[m.id];
           const pts=pred.h!==""&&pred.a!==""&&real?calcPts(pred,real):null;
           const played=real&&real.h!=="";
-          const locked=isMatchLocked(m.date);
+          const locked=isLocked(m.id, m.date);
+          const manualLocked=appDb.locked[m.id];
           return (
             <div key={m.id} style={{background:CARD,borderRadius:16,padding:"14px 16px",marginBottom:10,border:`1px solid ${locked?"rgba(255,255,255,0.08)":GC[m.g]+"40"}`,opacity:locked&&!pred.h?0.6:1}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11,flexWrap:"wrap",gap:6}}>
                 <span style={{background:GC[m.g],borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>Grupo {m.g}</span>
                 <span style={{color:"#7aadda",fontSize:12,fontWeight:600}}>{m.date}</span>
-                {locked&&!played&&<span style={{background:"#1e3a5f",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#7aadda",fontWeight:700}}>🔒 Cerrado</span>}
+                {locked&&!played&&<span style={{background:manualLocked?"#7c3aed":"#1e3a5f",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#7aadda",fontWeight:700}}>{manualLocked?"🔒 Admin":"🔒 Fecha"}</span>}
                 {pts!==null&&<span style={{background:pts===3?"#22c55e":pts===1?"#3b82f6":"#ef4444",borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{pts===3?"⭐ 3 pts":pts===1?"✓ 1 pt":"✗ 0 pts"}</span>}
                 {played&&pts===null&&<span style={{background:"#2a4a6e",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#7aadda"}}>Jugado</span>}
               </div>
@@ -477,7 +494,7 @@ export default function App() {
                   <div style={{fontSize:13,fontWeight:800,color:"white",marginTop:3}}>{m.a}</div>
                 </div>
               </div>
-              {locked&&!played&&<div style={{textAlign:"center",marginTop:8,fontSize:12,color:"#4a7a9b"}}>🔒 Pronósticos cerrados para este partido</div>}
+              {locked&&!played&&<div style={{textAlign:"center",marginTop:8,fontSize:12,color:manualLocked?"#a78bfa":"#4a7a9b"}}>{manualLocked?"🔒 El administrador cerró las apuestas para este partido":"🔒 Pronósticos cerrados para este partido"}</div>}
               {played&&<div style={{textAlign:"center",marginTop:10,fontSize:13,color:"#7aadda",fontWeight:600}}>Resultado real: <b style={{color:"#4ade80",fontSize:15}}>{real.h} – {real.a}</b></div>}
             </div>
           );
@@ -651,6 +668,11 @@ export default function App() {
                         <button onClick={()=>saveResult(m.id)}
                           style={{padding:"7px 14px",borderRadius:8,background:"linear-gradient(90deg,#22c55e,#16a34a)",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:13}}>
                           {hasResult?"✏️":"✅"}
+                        </button>
+                        <button onClick={()=>toggleLock(m.id)}
+                          title={appDb.locked[m.id]?"Abrir apuestas":"Cerrar apuestas"}
+                          style={{padding:"7px 12px",borderRadius:8,background:appDb.locked[m.id]?"rgba(124,58,237,0.3)":"rgba(255,255,255,0.08)",color:appDb.locked[m.id]?"#a78bfa":"#7aadda",border:`1px solid ${appDb.locked[m.id]?"rgba(124,58,237,0.5)":"rgba(255,255,255,0.12)"}`,cursor:"pointer",fontSize:13,fontWeight:700}}>
+                          {appDb.locked[m.id]?"🔒":"🔓"}
                         </button>
                         {hasResult&&<button onClick={()=>clearResult(m.id)}
                           style={{padding:"7px 10px",borderRadius:8,background:"rgba(239,68,68,0.2)",color:"#f87171",border:"1px solid rgba(239,68,68,0.3)",cursor:"pointer",fontSize:13}}>🗑️</button>}
