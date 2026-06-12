@@ -4,12 +4,12 @@ import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 
 // ── Firebase config ──────────────────────────────────────────
 const firebaseConfig = {
-  apiKey: "AIzaSyBfqKNkk60TnaZUCd6FKzs4EvzljKSm8A8",
-  authDomain: "polla-mundial-fifa-2026-14036.firebaseapp.com",
-  projectId: "polla-mundial-fifa-2026-14036",
-  storageBucket: "polla-mundial-fifa-2026-14036.firebasestorage.app",
-  messagingSenderId: "12313147453",
-  appId: "1:12313147453:web:7eff8d0b18e906f21b9254"
+  apiKey: "AIzaSyCY9ehA9EU6X209PPp9kCF_T8kvMK4GGFQ",
+  authDomain: "urbies-world-cup.firebaseapp.com",
+  projectId: "urbies-world-cup",
+  storageBucket: "urbies-world-cup.firebasestorage.app",
+  messagingSenderId: "561511617896",
+  appId: "1:561511617896:web:b58c607e5395e77d2432dd"
 };
 const firebaseApp = initializeApp(firebaseConfig);
 const fsdb = getFirestore(firebaseApp);
@@ -104,7 +104,7 @@ const FLAG = {
 };
 
 const GC = {"A":"#ef4444","B":"#f97316","C":"#eab308","D":"#22c55e","E":"#14b8a6","F":"#3b82f6","G":"#8b5cf6","H":"#ec4899","I":"#06b6d4","J":"#f59e0b","K":"#64748b","L":"#7c3aed"};
-const BG="#1a0933", BG2="#2d1054", CARD="rgba(255,255,255,0.08)", BORDER="rgba(200,150,255,0.2)";
+const BG="#0d1b2e", BG2="#112240", CARD="rgba(255,255,255,0.07)", BORDER="rgba(255,255,255,0.12)";
 
 const MATCH_DATES = {
   "11 Jun":"2026-06-11","12 Jun":"2026-06-12","13 Jun":"2026-06-13","14 Jun":"2026-06-14",
@@ -287,7 +287,7 @@ export default function App() {
     if(!r || r.h==="" || r.a==="") { setResMsg("❌ Ingresa ambos marcadores"); setTimeout(()=>setResMsg(""),2000); return; }
     if(isNaN(parseInt(r.h))||isNaN(parseInt(r.a))) { setResMsg("❌ Solo números"); setTimeout(()=>setResMsg(""),2000); return; }
     setResMsg("⏳ Guardando...");
-    const nextResults = {...appDbRef.current.results, [String(matchId)]: {h: String(parseInt(r.h)), a: String(parseInt(r.a))}};
+    const nextResults = {...appDbRef.current.results, [Number(matchId)]: {h: String(parseInt(r.h)), a: String(parseInt(r.a))}};
     const nextDb = {...appDbRef.current, results: nextResults};
     try {
       await dbWrite({...nextDb, participants: participantsRef.current});
@@ -300,7 +300,7 @@ export default function App() {
   async function clearResult(matchId) {
     if(!window.confirm("¿Borrar este resultado?")) return;
     const nextResults = {...appDbRef.current.results};
-    delete nextResults[String(matchId)];
+    delete nextResults[Number(matchId)];
     const nextDb = {...appDbRef.current, results: nextResults};
     try {
       await dbWrite({...nextDb, participants: participantsRef.current});
@@ -317,12 +317,12 @@ export default function App() {
     else setLoginErr("❌ Nombre o contraseña incorrectos");
   }
   function isLocked(matchId, dateStr) {
-    return appDb.locked[String(matchId)] || isMatchLocked(dateStr);
+    return appDb.locked[Number(matchId)] || isMatchLocked(dateStr);
   }
 
   async function toggleLock(matchId) {
     const cur = appDbRef.current;
-    const nextLocked = {...cur.locked, [String(matchId)]: !cur.locked[String(matchId)]};
+    const nextLocked = {...cur.locked, [Number(matchId)]: !cur.locked[Number(matchId)]};
     const nextDb = {...cur, locked: nextLocked};
     try {
       await dbWrite({...nextDb, participants: participantsRef.current});
@@ -399,7 +399,7 @@ export default function App() {
   if(loading) return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:BG}}>
       <div style={{textAlign:"center"}}><TrophyIcon size={72}/>
-        <div style={{marginTop:16,color:"#c4b5fd",fontSize:15}}>Cargando Polla Mundial FIFA...</div>
+        <div style={{marginTop:16,color:"#7aadda",fontSize:15}}>Cargando Urbies World Cup...</div>
       </div>
     </div>
   );
@@ -409,26 +409,26 @@ export default function App() {
       <div style={{width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:32}}>
           <TrophyIcon size={90}/>
-          <h1 style={{color:"white",margin:"14px 0 4px",fontSize:26,fontWeight:900,letterSpacing:2}}>POLLA MUNDIAL FIFA</h1>
-          <p style={{color:"#c084fc",margin:"0 0 4px",fontSize:18,fontWeight:900,letterSpacing:3}}>2026</p>
-          <p style={{color:"#c084fc",margin:0,fontSize:12,letterSpacing:3}}>FIFA WORLD CUP 2026</p>
+          <h1 style={{color:"white",margin:"14px 0 4px",fontSize:26,fontWeight:900,letterSpacing:2}}>URBIES WORLD CUP</h1>
+          <p style={{color:"#f97316",margin:"0 0 4px",fontSize:18,fontWeight:900,letterSpacing:3}}>2026</p>
+          <p style={{color:"#7aadda",margin:0,fontSize:12,letterSpacing:3}}>URBANIC GROUP · INT'L CONSULTING</p>
         </div>
         <div style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${BORDER}`,borderRadius:18,padding:28}}>
-          <p style={{color:"#c4b5fd",fontSize:13,textAlign:"center",marginBottom:20,letterSpacing:1}}>INGRESA TUS DATOS</p>
+          <p style={{color:"#7aadda",fontSize:13,textAlign:"center",marginBottom:20,letterSpacing:1}}>INGRESA TUS DATOS</p>
           <div style={{marginBottom:14}}>
-            <label style={{color:"#e9d5ff",fontSize:13,display:"block",marginBottom:7,fontWeight:600,letterSpacing:1}}>PARTICIPANTE</label>
+            <label style={{color:"#a8c8e8",fontSize:13,display:"block",marginBottom:7,fontWeight:600,letterSpacing:1}}>PARTICIPANTE</label>
             <select value={loginName} onChange={e=>setLoginName(e.target.value)} style={inp}>
               <option value="" style={{background:"#0d1b2e"}}>— Selecciona tu nombre —</option>
               {participants.map(p=><option key={p.name} value={p.name} style={{background:"#0d1b2e"}}>{p.name}</option>)}
             </select>
           </div>
           <div style={{marginBottom:20}}>
-            <label style={{color:"#e9d5ff",fontSize:13,display:"block",marginBottom:7,fontWeight:600,letterSpacing:1}}>CONTRASEÑA</label>
+            <label style={{color:"#a8c8e8",fontSize:13,display:"block",marginBottom:7,fontWeight:600,letterSpacing:1}}>CONTRASEÑA</label>
             <input type="password" value={loginPass} onChange={e=>setLoginPass(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&login()} placeholder="Tu contraseña" style={inp}/>
           </div>
           {loginErr&&<p style={{color:"#f87171",fontSize:14,marginBottom:14,textAlign:"center",fontWeight:600}}>{loginErr}</p>}
-          <button onClick={login} style={{width:"100%",padding:"14px",borderRadius:12,background:"linear-gradient(90deg,#7c3aed,#a855f7)",color:"white",fontWeight:900,fontSize:16,border:"none",cursor:"pointer",letterSpacing:2,boxShadow:"0 4px 20px rgba(168,85,247,0.4)"}}>
+          <button onClick={login} style={{width:"100%",padding:"14px",borderRadius:12,background:"linear-gradient(90deg,#1d6fb8,#f97316)",color:"white",fontWeight:900,fontSize:16,border:"none",cursor:"pointer",letterSpacing:2,boxShadow:"0 4px 20px rgba(249,115,22,0.3)"}}>
             🏆 INGRESAR
           </button>
         </div>
@@ -446,19 +446,19 @@ export default function App() {
       {/* HEADER */}
       <div style={{background:BG2,borderBottom:`1px solid ${BORDER}`,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:32}}>⚽</span>
+          <UrbgLogoIcon size={36}/>
           <div>
-            <div style={{fontWeight:900,fontSize:14,letterSpacing:1}}>POLLA WC <span style={{color:"#c084fc"}}>2026</span></div>
-            <div style={{fontSize:11,color:"#c4b5fd",marginTop:1}}>
-              <span style={{color:"white",fontWeight:700}}>{user}</span> · #{myRank} · <span style={{color:"#c084fc",fontWeight:800}}>{myPts} pts</span>
+            <div style={{fontWeight:900,fontSize:14,letterSpacing:1}}>URBIES WC <span style={{color:"#f97316"}}>2026</span></div>
+            <div style={{fontSize:11,color:"#7aadda",marginTop:1}}>
+              <span style={{color:"white",fontWeight:700}}>{user}</span> · #{myRank} · <span style={{color:"#f97316",fontWeight:800}}>{myPts} pts</span>
               &nbsp;{saving?"💾":""}
             </div>
           </div>
         </div>
         <div style={{display:"flex",gap:7,alignItems:"center"}}>
-          {saved&&<div style={{background:"#7c3aed",borderRadius:20,padding:"3px 12px",fontSize:12,fontWeight:800}}>✓ Guardado</div>}
-          <button onClick={()=>setShowChangePass(true)} style={{background:"rgba(255,255,255,0.08)",border:`1px solid ${BORDER}`,color:"#e9d5ff",padding:"6px 11px",borderRadius:8,cursor:"pointer",fontSize:12}}>🔑</button>
-          <button onClick={()=>setUser(null)} style={{background:"rgba(255,255,255,0.08)",border:`1px solid ${BORDER}`,color:"#e9d5ff",padding:"6px 11px",borderRadius:8,cursor:"pointer",fontSize:12}}>Salir</button>
+          {saved&&<div style={{background:"#22c55e",borderRadius:20,padding:"3px 12px",fontSize:12,fontWeight:800}}>✓ Guardado</div>}
+          <button onClick={()=>setShowChangePass(true)} style={{background:"rgba(255,255,255,0.08)",border:`1px solid ${BORDER}`,color:"#a8c8e8",padding:"6px 11px",borderRadius:8,cursor:"pointer",fontSize:12}}>🔑</button>
+          <button onClick={()=>setUser(null)} style={{background:"rgba(255,255,255,0.08)",border:`1px solid ${BORDER}`,color:"#a8c8e8",padding:"6px 11px",borderRadius:8,cursor:"pointer",fontSize:12}}>Salir</button>
         </div>
       </div>
 
@@ -468,19 +468,19 @@ export default function App() {
           <div style={{background:BG2,border:`1px solid ${BORDER}`,borderRadius:18,padding:26,width:"100%",maxWidth:340}}>
             <h3 style={{margin:"0 0 18px",fontSize:17}}>🔑 Cambiar Contraseña</h3>
             <div style={{marginBottom:12}}>
-              <label style={{color:"#e9d5ff",fontSize:13,display:"block",marginBottom:6,fontWeight:600}}>NUEVA CONTRASEÑA</label>
+              <label style={{color:"#a8c8e8",fontSize:13,display:"block",marginBottom:6,fontWeight:600}}>NUEVA CONTRASEÑA</label>
               <input type="password" value={newPass1} onChange={e=>setNewPass1(e.target.value)} placeholder="Mínimo 4 caracteres" style={inp}/>
             </div>
             <div style={{marginBottom:16}}>
-              <label style={{color:"#e9d5ff",fontSize:13,display:"block",marginBottom:6,fontWeight:600}}>CONFIRMAR</label>
+              <label style={{color:"#a8c8e8",fontSize:13,display:"block",marginBottom:6,fontWeight:600}}>CONFIRMAR</label>
               <input type="password" value={newPass2} onChange={e=>setNewPass2(e.target.value)} placeholder="Repite la contraseña" style={inp}/>
             </div>
             {passMsg&&<p style={{color:passMsg.startsWith("✅")?"#22c55e":"#f87171",fontSize:14,margin:"0 0 14px",textAlign:"center",fontWeight:600}}>{passMsg}</p>}
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>{setShowChangePass(false);setNewPass1("");setNewPass2("");setPassMsg("");}}
-                style={{flex:1,padding:"11px",borderRadius:10,background:"rgba(255,255,255,0.07)",color:"#e9d5ff",border:`1px solid ${BORDER}`,cursor:"pointer",fontSize:14}}>Cancelar</button>
+                style={{flex:1,padding:"11px",borderRadius:10,background:"rgba(255,255,255,0.07)",color:"#a8c8e8",border:`1px solid ${BORDER}`,cursor:"pointer",fontSize:14}}>Cancelar</button>
               <button onClick={changePassword}
-                style={{flex:1,padding:"11px",borderRadius:10,background:"linear-gradient(90deg,#7c3aed,#a855f7)",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:14}}>Guardar</button>
+                style={{flex:1,padding:"11px",borderRadius:10,background:"linear-gradient(90deg,#1d6fb8,#f97316)",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:14}}>Guardar</button>
             </div>
           </div>
         </div>
@@ -491,7 +491,7 @@ export default function App() {
         {[["predicciones","⚽ Pronósticos"],["apuestas","👀 Apuestas"],["tabla","📊 Posiciones"],["grupos","👥 Grupos"],...(user===ADMIN?[["admin","⚙️ Admin"]]:[])]
         .map(([v,label])=>(
           <button key={v} onClick={()=>setView(v)}
-            style={{flex:1,padding:"12px 4px",border:"none",background:"transparent",color:view===v?"#f97316":"#7aadda",fontWeight:view===v?900:500,fontSize:12,cursor:"pointer",borderBottom:view===v?"3px solid #c084fc":"3px solid transparent"}}>
+            style={{flex:1,padding:"12px 4px",border:"none",background:"transparent",color:view===v?"#f97316":"#7aadda",fontWeight:view===v?900:500,fontSize:12,cursor:"pointer",borderBottom:view===v?"3px solid #f97316":"3px solid transparent"}}>
             {label}
           </button>
         ))}
@@ -501,21 +501,19 @@ export default function App() {
         {/* FILTRO */}
         {(view==="predicciones"||view==="apuestas"||view==="grupos")&&(
           <div style={{marginBottom:16}}>
-            {/* Fila 1: Todos + Grupos A-L */}
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
-              <button onClick={()=>setFilterGroup("ALL")} style={{padding:"6px 14px",borderRadius:20,border:"none",background:filterGroup==="ALL"?"#a855f7":"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>Todos</button>
+              <button onClick={()=>setFilterGroup("ALL")} style={{padding:"6px 14px",borderRadius:20,border:"none",background:filterGroup==="ALL"?"#f97316":"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>Todos</button>
               {Object.keys(GROUPS).map(g=>(
                 <button key={g} onClick={()=>setFilterGroup(g)}
                   style={{padding:"6px 12px",borderRadius:20,border:"none",background:filterGroup===g?GC[g]:"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>{g}</button>
               ))}
             </div>
-            {/* Fila 2: Fases eliminatorias (solo si hay partidos agregados) */}
             {["Octavos","Cuartos","Semifinal","3er Puesto","Final"].some(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase))&&(
               <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:6,borderTop:"1px solid rgba(255,255,255,0.08)"}}>
-                <span style={{color:"#c4b5fd",fontSize:11,fontWeight:700,padding:"6px 4px",alignSelf:"center"}}>Eliminatorias:</span>
+                <span style={{color:"#7aadda",fontSize:11,fontWeight:700,padding:"6px 4px",alignSelf:"center"}}>Eliminatorias:</span>
                 {["Octavos","Cuartos","Semifinal","3er Puesto","Final"].filter(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase)).map(phase=>(
                   <button key={phase} onClick={()=>setFilterGroup(phase)}
-                    style={{padding:"6px 12px",borderRadius:20,border:"none",background:filterGroup===phase?"#7c3aed":"rgba(124,58,237,0.2)",color:filterGroup===phase?"white":"#c4b5fd",cursor:"pointer",fontSize:12,fontWeight:700,border:"1px solid rgba(124,58,237,0.4)"}}>
+                    style={{padding:"6px 12px",borderRadius:20,border:"1px solid rgba(29,111,184,0.4)",background:filterGroup===phase?"#1d6fb8":"rgba(29,111,184,0.15)",color:filterGroup===phase?"white":"#7aadda",cursor:"pointer",fontSize:12,fontWeight:700}}>
                     {phase==="Octavos"?"⚔️ Octavos":phase==="Cuartos"?"🏅 Cuartos":phase==="Semifinal"?"🔥 Semifinal":phase==="3er Puesto"?"🥉 3er Puesto":"🏆 Final"}
                   </button>
                 ))}
@@ -535,11 +533,11 @@ export default function App() {
           return (
             <div key={m.id} style={{background:CARD,borderRadius:16,padding:"14px 16px",marginBottom:10,border:`1px solid ${locked?"rgba(255,255,255,0.08)":GC[m.g]+"40"}`,opacity:locked&&!pred.h?0.6:1}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11,flexWrap:"wrap",gap:6}}>
-                <span style={{background:m.phase?("#7c3aed"):(GC[m.g]||"#64748b"),borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{m.phase||`Grupo ${m.g}`}</span>
-                <span style={{color:"#c4b5fd",fontSize:12,fontWeight:600}}>{m.date}</span>
-                {locked&&!played&&<span style={{background:manualLocked?"#7c3aed":"#1e3a5f",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#c4b5fd",fontWeight:700}}>{manualLocked?"🔒 Admin":"🔒 Fecha"}</span>}
+                <span style={{background:m.phase?("#1d4ed8"):(GC[m.g]||"#64748b"),borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{m.phase||`Grupo ${m.g}`}</span>
+                <span style={{color:"#7aadda",fontSize:12,fontWeight:600}}>{m.date}</span>
+                {locked&&!played&&<span style={{background:manualLocked?"#7c3aed":"#1e3a5f",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#7aadda",fontWeight:700}}>{manualLocked?"🔒 Admin":"🔒 Fecha"}</span>}
                 {pts!==null&&<span style={{background:pts===3?"#22c55e":pts===1?"#3b82f6":"#ef4444",borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{pts===3?"⭐ 3 pts":pts===1?"✓ 1 pt":"✗ 0 pts"}</span>}
-                {played&&pts===null&&<span style={{background:"#2a4a6e",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#c4b5fd"}}>Jugado</span>}
+                {played&&pts===null&&<span style={{background:"#2a4a6e",borderRadius:20,padding:"3px 12px",fontSize:11,color:"#7aadda"}}>Jugado</span>}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
                 <div style={{flex:1,textAlign:"right"}}>
@@ -561,7 +559,7 @@ export default function App() {
                 </div>
               </div>
               {locked&&!played&&<div style={{textAlign:"center",marginTop:8,fontSize:12,color:manualLocked?"#a78bfa":"#4a7a9b"}}>{manualLocked?"🔒 El administrador cerró las apuestas para este partido":"🔒 Pronósticos cerrados para este partido"}</div>}
-              {played&&<div style={{textAlign:"center",marginTop:10,fontSize:13,color:"#c4b5fd",fontWeight:600}}>Resultado real: <b style={{color:"#4ade80",fontSize:15}}>{real.h} – {real.a}</b></div>}
+              {played&&<div style={{textAlign:"center",marginTop:10,fontSize:13,color:"#7aadda",fontWeight:600}}>Resultado real: <b style={{color:"#4ade80",fontSize:15}}>{real.h} – {real.a}</b></div>}
             </div>
           );
         })}
@@ -572,7 +570,7 @@ export default function App() {
             <div style={{textAlign:"center",marginBottom:18}}>
               <div style={{fontSize:28}}>👀</div>
               <h2 style={{color:"white",fontWeight:900,fontSize:18,margin:"6px 0 2px"}}>APUESTAS URBIES</h2>
-              <p style={{color:"#c4b5fd",fontSize:12,margin:0}}>Pronósticos de todos los participantes</p>
+              <p style={{color:"#7aadda",fontSize:12,margin:0}}>Pronósticos de todos los participantes</p>
             </div>
             {filteredMatches.map(m=>{
               const real=appDb.results[m.id]||appDb.results[String(m.id)];
@@ -582,9 +580,9 @@ export default function App() {
               return (
                 <div key={m.id} style={{background:CARD,borderRadius:16,padding:"14px 16px",marginBottom:12,border:`1px solid ${GC[m.g]}40`}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:6}}>
-                    <span style={{background:m.phase?("#7c3aed"):(GC[m.g]||"#64748b"),borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{m.phase||`Grupo ${m.g}`}</span>
+                    <span style={{background:m.phase?("#1d4ed8"):(GC[m.g]||"#64748b"),borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{m.phase||`Grupo ${m.g}`}</span>
                     <span style={{color:"white",fontWeight:800,fontSize:13}}>{FLAG[m.h]} {m.h} vs {m.a} {FLAG[m.a]}</span>
-                    <span style={{color:"#c4b5fd",fontSize:11}}>{m.date}</span>
+                    <span style={{color:"#7aadda",fontSize:11}}>{m.date}</span>
                   </div>
                   {played&&(
                     <div style={{textAlign:"center",marginBottom:10,padding:"6px",background:"rgba(74,222,128,0.1)",borderRadius:10,border:"1px solid rgba(74,222,128,0.2)"}}>
@@ -596,7 +594,7 @@ export default function App() {
                       const pred=appDb.predictions[`${p.name}_${m.id}`];
                       if(!pred||pred.h==="") return (
                         <div key={p.name} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 12px",opacity:0.4}}>
-                          <span style={{fontSize:12,fontWeight:700,color:"#c4b5fd"}}>{p.name}</span>
+                          <span style={{fontSize:12,fontWeight:700,color:"#7aadda"}}>{p.name}</span>
                           <span style={{fontSize:11,color:"#445"}}>sin pronóstico</span>
                         </div>
                       );
@@ -605,7 +603,7 @@ export default function App() {
                       const border=pts===3?"rgba(74,222,128,0.3)":pts===1?"rgba(96,165,250,0.3)":pts===0?"rgba(248,113,113,0.2)":`rgba(255,255,255,0.08)`;
                       return (
                         <div key={p.name} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:bg,borderRadius:10,padding:"8px 12px",border:`1px solid ${border}`}}>
-                          <span style={{fontSize:12,fontWeight:800,color:p.name===user?"#c084fc":"white"}}>{p.name}</span>
+                          <span style={{fontSize:12,fontWeight:800,color:p.name===user?"#f97316":"white"}}>{p.name}</span>
                           <span style={{fontSize:16,fontWeight:900,color:"white"}}>{pred.h} – {pred.a}</span>
                           {pts!==null&&<span style={{fontSize:11,fontWeight:800,color:pts===3?"#4ade80":pts===1?"#60a5fa":"#f87171"}}>{pts===3?"⭐3":pts===1?"✓1":"✗0"}</span>}
                         </div>
@@ -623,28 +621,28 @@ export default function App() {
         {view==="tabla"&&(
           <div>
             <div style={{textAlign:"center",marginBottom:24}}>
-              <div style={{textAlign:"center"}}><span style={{fontSize:60}}>⚽</span><h2 style={{color:"white",fontWeight:900,fontSize:22,margin:"8px 0 0",letterSpacing:2}}>POLLA MUNDIAL FIFA 2026</h2></div>
-              <p style={{color:"#c4b5fd",fontSize:13,marginTop:12,letterSpacing:3,fontWeight:600}}>TABLA DE POSICIONES</p>
+              <UrbgLogoFull width={280}/>
+              <p style={{color:"#7aadda",fontSize:13,marginTop:12,letterSpacing:3,fontWeight:600}}>TABLA DE POSICIONES</p>
             </div>
             <div style={{background:"rgba(255,255,255,0.07)",border:`1px solid ${BORDER}`,borderRadius:14,padding:"14px 16px",marginBottom:18,display:"flex",justifyContent:"space-around",flexWrap:"wrap",gap:10}}>
-              <div style={{textAlign:"center"}}><div style={{fontSize:24}}>⭐</div><div style={{color:"#4ade80",fontWeight:900,fontSize:20}}>3 pts</div><div style={{color:"#e9d5ff",fontSize:12,fontWeight:600}}>Marcador exacto</div></div>
-              <div style={{textAlign:"center"}}><div style={{fontSize:24}}>✓</div><div style={{color:"#60a5fa",fontWeight:900,fontSize:20}}>1 pt</div><div style={{color:"#e9d5ff",fontSize:12,fontWeight:600}}>Resultado</div></div>
-              <div style={{textAlign:"center"}}><div style={{fontSize:24}}>✗</div><div style={{color:"#f87171",fontWeight:900,fontSize:20}}>0 pts</div><div style={{color:"#e9d5ff",fontSize:12,fontWeight:600}}>Fallo</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:24}}>⭐</div><div style={{color:"#4ade80",fontWeight:900,fontSize:20}}>3 pts</div><div style={{color:"#a8c8e8",fontSize:12,fontWeight:600}}>Marcador exacto</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:24}}>✓</div><div style={{color:"#60a5fa",fontWeight:900,fontSize:20}}>1 pt</div><div style={{color:"#a8c8e8",fontSize:12,fontWeight:600}}>Resultado</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:24}}>✗</div><div style={{color:"#f87171",fontWeight:900,fontSize:20}}>0 pts</div><div style={{color:"#a8c8e8",fontSize:12,fontWeight:600}}>Fallo</div></div>
             </div>
             {scoreMap.map((s,i)=>(
-              <div key={s.name} style={{background:s.name===user?"rgba(168,85,247,0.15)":CARD,borderRadius:16,padding:"16px 20px",marginBottom:10,display:"flex",alignItems:"center",gap:14,border:s.name===user?"1px solid rgba(192,132,252,0.5)":`1px solid ${BORDER}`}}>
+              <div key={s.name} style={{background:s.name===user?"rgba(249,115,22,0.15)":CARD,borderRadius:16,padding:"16px 20px",marginBottom:10,display:"flex",alignItems:"center",gap:14,border:s.name===user?"1px solid rgba(249,115,22,0.5)":`1px solid ${BORDER}`}}>
                 <div style={{fontSize:30,minWidth:40,textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":<span style={{color:"#4a7a9b",fontSize:18,fontWeight:800}}>#{i+1}</span>}</div>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:900,fontSize:17}}>{s.name} {s.name===user&&<span style={{color:"#c084fc",fontSize:13}}>(tú)</span>}</div>
+                  <div style={{fontWeight:900,fontSize:17}}>{s.name} {s.name===user&&<span style={{color:"#f97316",fontSize:13}}>(tú)</span>}</div>
                   <div style={{fontSize:13,marginTop:4}}>
-                    <span style={{color:"#4ade80"}}>⭐ {MATCHES_RAW.filter(m=>{const p=appDb.predictions[`${s.name}_${m.id}`],r=appDb.results[m.id];return p&&r&&calcPts(p,r)===3;}).length} exactos</span>
+                    <span style={{color:"#4ade80"}}>⭐ {[...MATCHES_RAW,...(appDb.extraMatches||[])].filter(m=>{const p=appDb.predictions[`${s.name}_${m.id}`],r=appDb.results[m.id]||appDb.results[String(m.id)];return p&&r&&calcPts(p,r)===3;}).length} exactos</span>
                     {" · "}
-                    <span style={{color:"#60a5fa"}}>✓ {MATCHES_RAW.filter(m=>{const p=appDb.predictions[`${s.name}_${m.id}`],r=appDb.results[m.id];return p&&r&&calcPts(p,r)===1;}).length} resultado</span>
+                    <span style={{color:"#60a5fa"}}>✓ {[...MATCHES_RAW,...(appDb.extraMatches||[])].filter(m=>{const p=appDb.predictions[`${s.name}_${m.id}`],r=appDb.results[m.id]||appDb.results[String(m.id)];return p&&r&&calcPts(p,r)===1;}).length} resultado</span>
                   </div>
                 </div>
                 <div style={{textAlign:"right"}}>
                   <div style={{fontSize:32,fontWeight:900,color:i===0?"#fbbf24":i===1?"#d1d5db":i===2?"#d97706":"white"}}>{s.pts}</div>
-                  <div style={{fontSize:12,color:"#c4b5fd",fontWeight:700}}>puntos</div>
+                  <div style={{fontSize:12,color:"#7aadda",fontWeight:700}}>puntos</div>
                 </div>
               </div>
             ))}
@@ -654,16 +652,15 @@ export default function App() {
         {/* GRUPOS */}
         {view==="grupos"&&(
           <div>
-            {/* Partidos eliminatorias si hay filtro de fase o ALL */}
             {(filterGroup==="ALL"||["Octavos","Cuartos","Semifinal","3er Puesto","Final"].includes(filterGroup))&&(appDb.extraMatches||[]).filter(m=>filterGroup==="ALL"||m.phase===filterGroup).length>0&&(
-              <div style={{background:CARD,borderRadius:16,padding:16,marginBottom:14,border:"1px solid rgba(124,58,237,0.4)"}}>
-                <div style={{marginBottom:12}}><span style={{background:"#7c3aed",borderRadius:20,padding:"4px 14px",fontSize:12,fontWeight:800}}>⚔️ FASE ELIMINATORIA</span></div>
+              <div style={{background:CARD,borderRadius:16,padding:16,marginBottom:14,border:"1px solid rgba(29,111,184,0.4)"}}>
+                <div style={{marginBottom:12}}><span style={{background:"#1d6fb8",borderRadius:20,padding:"4px 14px",fontSize:12,fontWeight:800}}>⚔️ FASE ELIMINATORIA</span></div>
                 <div style={{borderTop:`1px solid ${BORDER}`,paddingTop:10}}>
                   {(appDb.extraMatches||[]).filter(m=>filterGroup==="ALL"||m.phase===filterGroup).map(m=>{
                     const real=appDb.results[m.id]||appDb.results[String(m.id)];
                     return (
                       <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid rgba(255,255,255,0.05)`}}>
-                        <span style={{fontSize:11,color:"#a78bfa",minWidth:70,fontWeight:700}}>{m.phase} · {m.date}</span>
+                        <span style={{fontSize:11,color:"#60a5fa",minWidth:70,fontWeight:700}}>{m.phase} · {m.date}</span>
                         <span style={{fontSize:13,flex:1,textAlign:"right",fontWeight:700,color:"white"}}>{FLAG[m.h]||"🏳"} {m.h}</span>
                         <span style={{fontSize:13,fontWeight:900,minWidth:60,textAlign:"center",color:real&&real.h!==""?"#4ade80":"#3a6080"}}>{real&&real.h!==""?`${real.h}–${real.a}`:"vs"}</span>
                         <span style={{fontSize:13,flex:1,fontWeight:700,color:"white"}}>{m.a} {FLAG[m.a]||"🏳"}</span>
@@ -689,7 +686,7 @@ export default function App() {
                     const real=appDb.results[m.id]||appDb.results[String(m.id)];
                     return (
                       <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid rgba(255,255,255,0.05)`}}>
-                        <span style={{fontSize:12,color:"#c4b5fd",minWidth:52,fontWeight:600}}>{m.date}</span>
+                        <span style={{fontSize:12,color:"#7aadda",minWidth:52,fontWeight:600}}>{m.date}</span>
                         <span style={{fontSize:13,flex:1,textAlign:"right",fontWeight:700,color:"white"}}>{FLAG[m.h]} {m.h}</span>
                         <span style={{fontSize:13,fontWeight:900,minWidth:60,textAlign:"center",color:real&&real.h!==""?"#4ade80":"#3a6080"}}>{real&&real.h!==""?`${real.h}–${real.a}`:"vs"}</span>
                         <span style={{fontSize:13,flex:1,fontWeight:700,color:"white"}}>{m.a} {FLAG[m.a]}</span>
@@ -708,14 +705,13 @@ export default function App() {
             <div style={{textAlign:"center",marginBottom:20}}>
               <div style={{fontSize:32}}>⚙️</div>
               <h2 style={{color:"white",fontWeight:900,fontSize:18,margin:"6px 0 2px"}}>PANEL ADMINISTRADOR</h2>
-              <p style={{color:"#c084fc",fontSize:12,margin:0}}>Solo visible para el administrador</p>
+              <p style={{color:"#7aadda",fontSize:12,margin:0}}>Solo visible para Mónica</p>
             </div>
 
-            {/* ── SECCIÓN RESULTADOS ── */}
             {/* ── AGREGAR PARTIDOS ELIMINATORIAS ── */}
-            <div style={{background:CARD,borderRadius:16,padding:18,marginBottom:16,border:"1px solid rgba(192,132,252,0.4)"}}>
-              <h3 style={{color:"#c084fc",fontSize:15,fontWeight:800,margin:"0 0 6px",letterSpacing:1}}>➕ AGREGAR PARTIDO (FASES ELIMINATORIAS)</h3>
-              <p style={{color:"#c4b5fd",fontSize:12,margin:"0 0 14px"}}>Agrega los partidos de Octavos, Cuartos, Semifinal y Final cuando se conozcan los clasificados.</p>
+            <div style={{background:CARD,borderRadius:16,padding:18,marginBottom:16,border:"1px solid rgba(29,111,184,0.4)"}}>
+              <h3 style={{color:"#60a5fa",fontSize:15,fontWeight:800,margin:"0 0 6px",letterSpacing:1}}>➕ AGREGAR PARTIDO (FASES ELIMINATORIAS)</h3>
+              <p style={{color:"#7aadda",fontSize:12,margin:"0 0 14px"}}>Agrega los partidos de Octavos, Cuartos, Semifinal y Final cuando se conozcan los clasificados.</p>
               {matchMsg&&<div style={{background:matchMsg.startsWith("✅")?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)",border:`1px solid ${matchMsg.startsWith("✅")?"rgba(74,222,128,0.4)":"rgba(248,113,113,0.4)"}`,borderRadius:10,padding:"10px",marginBottom:12,textAlign:"center",color:matchMsg.startsWith("✅")?"#4ade80":"#f87171",fontWeight:700}}>{matchMsg}</div>}
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
                 <select value={newMatchPhase} onChange={e=>setNewMatchPhase(e.target.value)}
@@ -732,21 +728,21 @@ export default function App() {
               <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                 <input value={newMatchH} onChange={e=>setNewMatchH(e.target.value)} placeholder="🏠 Equipo local"
                   style={{flex:1,minWidth:120,padding:"9px 12px",borderRadius:9,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
-                <span style={{color:"#c4b5fd",fontWeight:900}}>vs</span>
+                <span style={{color:"#7aadda",fontWeight:900}}>vs</span>
                 <input value={newMatchA} onChange={e=>setNewMatchA(e.target.value)} placeholder="✈️ Equipo visitante"
                   style={{flex:1,minWidth:120,padding:"9px 12px",borderRadius:9,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
                 <button onClick={addExtraMatch}
-                  style={{padding:"9px 18px",borderRadius:9,background:"linear-gradient(90deg,#7c3aed,#a855f7)",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:14}}>
+                  style={{padding:"9px 18px",borderRadius:9,background:"linear-gradient(90deg,#1d6fb8,#f97316)",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:14}}>
                   Agregar
                 </button>
               </div>
               {(appDb.extraMatches||[]).length>0&&(
                 <div style={{marginTop:14}}>
-                  <p style={{color:"#c4b5fd",fontSize:12,fontWeight:700,margin:"0 0 8px"}}>PARTIDOS AGREGADOS:</p>
+                  <p style={{color:"#7aadda",fontSize:12,fontWeight:700,margin:"0 0 8px"}}>PARTIDOS AGREGADOS:</p>
                   {(appDb.extraMatches||[]).map(m=>(
-                    <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(124,58,237,0.15)",borderRadius:10,padding:"8px 12px",marginBottom:6,border:"1px solid rgba(124,58,237,0.3)"}}>
+                    <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(29,111,184,0.15)",borderRadius:10,padding:"8px 12px",marginBottom:6,border:"1px solid rgba(29,111,184,0.3)"}}>
                       <span style={{fontSize:13,color:"white",fontWeight:700}}>
-                        <span style={{background:"#7c3aed",borderRadius:12,padding:"2px 8px",fontSize:10,marginRight:8}}>{m.phase}</span>
+                        <span style={{background:"#1d6fb8",borderRadius:12,padding:"2px 8px",fontSize:10,marginRight:8}}>{m.phase}</span>
                         {m.h} vs {m.a} · {m.date}
                       </span>
                       <button onClick={()=>deleteExtraMatch(m.id)}
@@ -757,9 +753,10 @@ export default function App() {
               )}
             </div>
 
+            {/* ── SECCIÓN RESULTADOS ── */}
             <div style={{background:CARD,borderRadius:16,padding:18,marginBottom:16,border:"1px solid rgba(74,222,128,0.3)"}}>
               <h3 style={{color:"#4ade80",fontSize:15,fontWeight:800,margin:"0 0 6px",letterSpacing:1}}>⚽ CARGAR RESULTADOS</h3>
-              <p style={{color:"#c4b5fd",fontSize:12,margin:"0 0 14px"}}>Ingresa el marcador final de cada partido jugado.</p>
+              <p style={{color:"#7aadda",fontSize:12,margin:"0 0 14px"}}>Ingresa el marcador final de cada partido jugado.</p>
 
               {resMsg&&<div style={{background:resMsg.startsWith("✅")?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)",border:`1px solid ${resMsg.startsWith("✅")?"rgba(74,222,128,0.4)":"rgba(248,113,113,0.4)"}`,borderRadius:10,padding:"10px 16px",marginBottom:14,textAlign:"center",color:resMsg.startsWith("✅")?"#4ade80":"#f87171",fontWeight:700}}>{resMsg}</div>}
 
@@ -772,7 +769,7 @@ export default function App() {
                 ))}
                 {["Octavos","Cuartos","Semifinal","3er Puesto","Final"].filter(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase)).map(phase=>(
                   <button key={phase} onClick={()=>setResFilterGroup(phase)}
-                    style={{padding:"5px 10px",borderRadius:20,border:"none",background:resFilterGroup===phase?"#7c3aed":"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:11,fontWeight:700}}>{phase}</button>
+                    style={{padding:"5px 10px",borderRadius:20,border:"none",background:resFilterGroup===phase?"#1d6fb8":"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:11,fontWeight:700}}>{phase}</button>
                 ))}
               </div>
 
@@ -786,7 +783,7 @@ export default function App() {
                       <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:180}}>
                         <span style={{background:GC[m.g],borderRadius:12,padding:"2px 8px",fontSize:10,fontWeight:800}}>{m.g}</span>
                         <span style={{fontSize:13,fontWeight:700,color:"white"}}>{FLAG[m.h]} {m.h} <span style={{color:"#4a7a9b"}}>vs</span> {m.a} {FLAG[m.a]}</span>
-                        <span style={{fontSize:11,color:"#c4b5fd"}}>{m.date}</span>
+                        <span style={{fontSize:11,color:"#7aadda"}}>{m.date}</span>
                       </div>
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
                         {hasResult&&!editResults[m.id]&&(
@@ -820,18 +817,18 @@ export default function App() {
             {/* ── SECCIÓN PARTICIPANTES ── */}
             {adminMsg&&<div style={{background:adminMsg.startsWith("✅")?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)",border:`1px solid ${adminMsg.startsWith("✅")?"rgba(74,222,128,0.4)":"rgba(248,113,113,0.4)"}`,borderRadius:10,padding:"10px 16px",marginBottom:16,textAlign:"center",color:adminMsg.startsWith("✅")?"#4ade80":"#f87171",fontWeight:700}}>{adminMsg}</div>}
             <div style={{background:CARD,borderRadius:16,padding:18,marginBottom:16,border:`1px solid ${BORDER}`}}>
-              <h3 style={{color:"#c084fc",fontSize:14,fontWeight:800,margin:"0 0 14px",letterSpacing:1}}>➕ AGREGAR PARTICIPANTE</h3>
+              <h3 style={{color:"#f97316",fontSize:14,fontWeight:800,margin:"0 0 14px",letterSpacing:1}}>➕ AGREGAR PARTICIPANTE</h3>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 <input value={adminNewName} onChange={e=>setAdminNewName(e.target.value)} placeholder="Nombre (ej: PEDRO)"
                   style={{flex:1,minWidth:120,padding:"9px 12px",borderRadius:9,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
                 <input value={adminNewPass} onChange={e=>setAdminNewPass(e.target.value)} placeholder="Contraseña"
                   style={{flex:1,minWidth:120,padding:"9px 12px",borderRadius:9,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}/>
                 <button onClick={adminAddParticipant}
-                  style={{padding:"9px 18px",borderRadius:9,background:"linear-gradient(90deg,#7c3aed,#a855f7)",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:14}}>Agregar</button>
+                  style={{padding:"9px 18px",borderRadius:9,background:"linear-gradient(90deg,#1d6fb8,#f97316)",color:"white",border:"none",cursor:"pointer",fontWeight:800,fontSize:14}}>Agregar</button>
               </div>
             </div>
             <div style={{background:CARD,borderRadius:16,padding:18,border:`1px solid ${BORDER}`}}>
-              <h3 style={{color:"#c084fc",fontSize:14,fontWeight:800,margin:"0 0 14px",letterSpacing:1}}>👥 PARTICIPANTES ({participants.length})</h3>
+              <h3 style={{color:"#f97316",fontSize:14,fontWeight:800,margin:"0 0 14px",letterSpacing:1}}>👥 PARTICIPANTES ({participants.length})</h3>
               {participants.map((p,i)=>(
                 <div key={p.name} style={{marginBottom:8}}>
                   {adminEditIdx===i ? (
@@ -846,8 +843,8 @@ export default function App() {
                   ) : (
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.04)",borderRadius:10,padding:"10px 14px",border:`1px solid ${BORDER}`}}>
                       <div>
-                        <span style={{fontWeight:800,fontSize:14,color:p.name===ADMIN?"#c084fc":"white"}}>{p.name}</span>
-                        {p.name===ADMIN&&<span style={{fontSize:11,color:"#c084fc",marginLeft:6}}>(admin)</span>}
+                        <span style={{fontWeight:800,fontSize:14,color:p.name===ADMIN?"#f97316":"white"}}>{p.name}</span>
+                        {p.name===ADMIN&&<span style={{fontSize:11,color:"#f97316",marginLeft:6}}>(admin)</span>}
                         <div style={{fontSize:11,color:"#4a7a9b",marginTop:2}}>Pass: {p.pass}</div>
                       </div>
                       <div style={{display:"flex",gap:8}}>
