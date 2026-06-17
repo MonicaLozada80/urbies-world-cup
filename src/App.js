@@ -226,14 +226,39 @@ export default function App() {
     try { await dbWrite({...appDbRef.current, participants: next}); } catch(e) { console.error(e); }
   }
 
+  // Helper: lee el estado más reciente de Firebase, aplica los cambios locales sobre ESE estado
+  // fresco (no sobre lo que hay en memoria), y escribe. Esto evita que dos personas guardando
+  // casi al mismo tiempo se borren los cambios mutuamente.
+  async function writeWithMerge(mutateFn) {
+    const fresh = await dbRead();
+    const base = {
+      predictions: fresh.predictions||{},
+      results: fresh.results||{},
+      locked: fresh.locked||{},
+      extraMatches: fresh.extraMatches||[],
+      participants: fresh.participants||participantsRef.current,
+    };
+    const merged = mutateFn(base);
+    await dbWrite(merged);
+    setAppDb({
+      predictions: merged.predictions,
+      results: merged.results,
+      locked: merged.locked,
+      extraMatches: merged.extraMatches,
+    });
+    if(merged.participants) setParticipants(merged.participants);
+    return merged;
+  }
+
   async function changePassword() {
     if(newPass1.length < 4) { setPassMsg("❌ Mínimo 4 caracteres"); return; }
     if(newPass1 !== newPass2) { setPassMsg("❌ Las contraseñas no coinciden"); return; }
     setPassMsg("⏳ Guardando...");
-    const nextParticipants = participantsRef.current.map(p => p.name === user ? {...p, pass: newPass1} : p);
     try {
-      await dbWrite({...appDbRef.current, participants: nextParticipants});
-      setParticipants(nextParticipants);
+      await writeWithMerge(base => ({
+        ...base,
+        participants: (base.participants||[]).map(p => p.name === user ? {...p, pass: newPass1} : p)
+      }));
       setPassMsg("✅ ¡Contraseña cambiada!");
       setNewPass1(""); setNewPass2("");
       setTimeout(() => { setShowChangePass(false); setPassMsg(""); }, 2000);
@@ -287,11 +312,11 @@ export default function App() {
     if(!r || r.h==="" || r.a==="") { setResMsg("❌ Ingresa ambos marcadores"); setTimeout(()=>setResMsg(""),2000); return; }
     if(isNaN(parseInt(r.h))||isNaN(parseInt(r.a))) { setResMsg("❌ Solo números"); setTimeout(()=>setResMsg(""),2000); return; }
     setResMsg("⏳ Guardando...");
-    const nextResults = {...appDbRef.current.results, [Number(matchId)]: {h: String(parseInt(r.h)), a: String(parseInt(r.a))}};
-    const nextDb = {...appDbRef.current, results: nextResults};
     try {
-      await dbWrite({...nextDb, participants: participantsRef.current});
-      setAppDb(nextDb);
+      await writeWithMerge(base => ({
+        ...base,
+        results: {...base.results, [String(matchId)]: {h: String(parseInt(r.h)), a: String(parseInt(r.a))}}
+      }));
       setEditResults(prev => { const n={...prev}; delete n[matchId]; return n; });
       setResMsg("✅ Resultado guardado");
     } catch(e) { setResMsg("❌ Error: " + e.message); }
@@ -299,12 +324,12 @@ export default function App() {
   }
   async function clearResult(matchId) {
     if(!window.confirm("¿Borrar este resultado?")) return;
-    const nextResults = {...appDbRef.current.results};
-    delete nextResults[Number(matchId)];
-    const nextDb = {...appDbRef.current, results: nextResults};
     try {
-      await dbWrite({...nextDb, participants: participantsRef.current});
-      setAppDb(nextDb);
+      await writeWithMerge(base => {
+        const nextResults = {...base.results};
+        delete nextResults[String(matchId)];
+        return {...base, results: nextResults};
+      });
       setResMsg("✅ Resultado borrado");
     } catch(e) { setResMsg("❌ Error: " + e.message); }
     setTimeout(()=>setResMsg(""),2000);
@@ -317,17 +342,16 @@ export default function App() {
     else setLoginErr("❌ Nombre o contraseña incorrectos");
   }
   function isLocked(matchId, dateStr) {
-    return appDb.locked[Number(matchId)] || isMatchLocked(dateStr);
+    return appDb.locked[String(matchId)] || isMatchLocked(dateStr);
   }
 
   async function toggleLock(matchId) {
-    const cur = appDbRef.current;
-    const nextLocked = {...cur.locked, [Number(matchId)]: !cur.locked[Number(matchId)]};
-    const nextDb = {...cur, locked: nextLocked};
     try {
-      await dbWrite({...nextDb, participants: participantsRef.current});
-      setAppDb(nextDb);
-      setResMsg(nextLocked[matchId] ? "🔒 Apuestas cerradas" : "🔓 Apuestas abiertas");
+      const merged = await writeWithMerge(base => ({
+        ...base,
+        locked: {...base.locked, [String(matchId)]: !base.locked[String(matchId)]}
+      }));
+      setResMsg(merged.locked[String(matchId)] ? "🔒 Apuestas cerradas" : "🔓 Apuestas abiertas");
     } catch(e) { setResMsg("❌ Error: " + e.message); }
     setTimeout(()=>setResMsg(""),2000);
   }
@@ -336,21 +360,16 @@ export default function App() {
     if(!newMatchH.trim()||!newMatchA.trim()||!newMatchDate.trim()){
       setMatchMsg("❌ Completa todos los campos"); setTimeout(()=>setMatchMsg(""),2000); return;
     }
-    const cur = appDbRef.current;
-    const existingExtras = cur.extraMatches||[];
-    const maxId = Math.max(1000, ...existingExtras.map(m=>m.id), ...[72]);
-    const newMatch = {
-      id: maxId+1,
-      g: newMatchPhase,
-      h: newMatchH.trim(),
-      a: newMatchA.trim(),
-      date: newMatchDate.trim(),
-      phase: newMatchPhase
-    };
-    const nextDb = {...cur, extraMatches:[...existingExtras, newMatch]};
     try {
-      await dbWrite({...nextDb, participants: participantsRef.current});
-      setAppDb(nextDb);
+      await writeWithMerge(base => {
+        const existingExtras = base.extraMatches||[];
+        const maxId = Math.max(1000, ...existingExtras.map(m=>m.id), ...[72]);
+        const newMatch = {
+          id: maxId+1, g: newMatchPhase, h: newMatchH.trim(), a: newMatchA.trim(),
+          date: newMatchDate.trim(), phase: newMatchPhase
+        };
+        return {...base, extraMatches:[...existingExtras, newMatch]};
+      });
       setNewMatchH(""); setNewMatchA(""); setNewMatchDate("");
       setMatchMsg("✅ Partido agregado");
     } catch(e) { setMatchMsg("❌ Error: "+e.message); }
@@ -359,16 +378,13 @@ export default function App() {
 
   async function deleteExtraMatch(matchId) {
     if(!window.confirm("¿Eliminar este partido?")) return;
-    const cur = appDbRef.current;
-    const nextExtras = (cur.extraMatches||[]).filter(m=>m.id!==matchId);
-    const nextResults = {...cur.results};
-    delete nextResults[String(matchId)];
-    const nextLocked = {...cur.locked};
-    delete nextLocked[String(matchId)];
-    const nextDb = {...cur, extraMatches:nextExtras, results:nextResults, locked:nextLocked};
     try {
-      await dbWrite({...nextDb, participants: participantsRef.current});
-      setAppDb(nextDb);
+      await writeWithMerge(base => {
+        const nextExtras = (base.extraMatches||[]).filter(m=>m.id!==matchId);
+        const nextResults = {...base.results}; delete nextResults[String(matchId)];
+        const nextLocked = {...base.locked}; delete nextLocked[String(matchId)];
+        return {...base, extraMatches:nextExtras, results:nextResults, locked:nextLocked};
+      });
       setMatchMsg("✅ Partido eliminado");
     } catch(e) { setMatchMsg("❌ Error: "+e.message); }
     setTimeout(()=>setMatchMsg(""),2000);
@@ -376,7 +392,16 @@ export default function App() {
 
   async function savePrediction(matchId,h,a){
     const key=`${user}_${matchId}`;
-    await saveDb({...appDb, predictions:{...appDb.predictions,[key]:{h,a}}});
+    setAppDb(prev => ({...prev, predictions: {...prev.predictions, [key]:{h,a}}}));
+    setSaving(true);
+    try {
+      await writeWithMerge(base => ({
+        ...base,
+        predictions: {...base.predictions, [key]:{h,a}}
+      }));
+      setSaved(true); setTimeout(()=>setSaved(false),1500);
+    } catch(e) { console.error("Error guardando pronóstico", e); }
+    setSaving(false);
   }
   function getScore(participant){
     let pts=0;
