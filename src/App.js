@@ -106,15 +106,9 @@ const FLAG = {
 const GC = {"A":"#ef4444","B":"#f97316","C":"#eab308","D":"#22c55e","E":"#14b8a6","F":"#3b82f6","G":"#8b5cf6","H":"#ec4899","I":"#06b6d4","J":"#f59e0b","K":"#64748b","L":"#7c3aed"};
 const BG="#0d1b2e", BG2="#112240", CARD="rgba(255,255,255,0.07)", BORDER="rgba(255,255,255,0.12)";
 
-const MATCH_DATES = {
-  "11 Jun":"2026-06-11","12 Jun":"2026-06-12","13 Jun":"2026-06-13","14 Jun":"2026-06-14",
-  "15 Jun":"2026-06-15","16 Jun":"2026-06-16","17 Jun":"2026-06-17","18 Jun":"2026-06-18",
-  "19 Jun":"2026-06-19","20 Jun":"2026-06-20","21 Jun":"2026-06-21","22 Jun":"2026-06-22",
-  "23 Jun":"2026-06-23","24 Jun":"2026-06-24","25 Jun":"2026-06-25","26 Jun":"2026-06-26","27 Jun":"2026-06-27",
-};
+// Cierre SOLO manual: el administrador decide cuándo cerrar cada partido desde el panel Admin.
 function isMatchLocked(dateStr) {
-  const d = MATCH_DATES[dateStr]; if(!d) return false;
-  return new Date() >= new Date(d + "T05:00:00Z");
+  return false;
 }
 function calcPts(pred, real) {
   if(!real||real.h===""||real.a==="") return null;
@@ -345,7 +339,7 @@ export default function App() {
     else setLoginErr("❌ Nombre o contraseña incorrectos");
   }
   function isLocked(matchId, dateStr) {
-    return appDb.locked[String(matchId)] || isMatchLocked(dateStr);
+    return appDb.locked[String(matchId)] || false;
   }
 
   async function toggleLock(matchId) {
