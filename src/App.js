@@ -194,6 +194,9 @@ export default function App() {
   const [newMatchDate, setNewMatchDate] = useState("");
   const [newMatchPhase, setNewMatchPhase] = useState("Octavos");
   const [matchMsg, setMatchMsg]   = useState("");
+  // Pronósticos — edición local + botón Guardar explícito por partido
+  const [editPredictions, setEditPredictions] = useState({});
+  const [predStatus, setPredStatus] = useState({});
 
   const appDbRef = useRef(appDb);
   appDbRef.current = appDb;
@@ -390,18 +393,41 @@ export default function App() {
     setTimeout(()=>setMatchMsg(""),2000);
   }
 
-  async function savePrediction(matchId,h,a){
-    const key=`${user}_${matchId}`;
-    setAppDb(prev => ({...prev, predictions: {...prev.predictions, [key]:{h,a}}}));
-    setSaving(true);
+  function handlePredChange(matchId, side, val) {
+    setEditPredictions(prev => {
+      const current = prev[matchId] || {
+        h: (appDb.predictions[`${user}_${matchId}`]||{}).h ?? "",
+        a: (appDb.predictions[`${user}_${matchId}`]||{}).a ?? ""
+      };
+      return {...prev, [matchId]: {...current, [side]: val}};
+    });
+    setPredStatus(prev => ({...prev, [matchId]: "idle"}));
+  }
+
+  async function savePredictionClick(matchId) {
+    const edit = editPredictions[matchId];
+    const current = appDb.predictions[`${user}_${matchId}`]||{h:"",a:""};
+    const h = edit ? edit.h : current.h;
+    const a = edit ? edit.a : current.a;
+    if(h===""||a===""){
+      setPredStatus(prev => ({...prev, [matchId]: "error"}));
+      setTimeout(()=>setPredStatus(prev => ({...prev, [matchId]: "idle"})), 2500);
+      return;
+    }
+    const key = `${user}_${matchId}`;
+    setPredStatus(prev => ({...prev, [matchId]: "saving"}));
     try {
       await writeWithMerge(base => ({
         ...base,
         predictions: {...base.predictions, [key]:{h,a}}
       }));
-      setSaved(true); setTimeout(()=>setSaved(false),1500);
-    } catch(e) { console.error("Error guardando pronóstico", e); }
-    setSaving(false);
+      setPredStatus(prev => ({...prev, [matchId]: "saved"}));
+      setEditPredictions(prev => { const n={...prev}; delete n[matchId]; return n; });
+    } catch(e) {
+      console.error("Error guardando pronóstico", e);
+      setPredStatus(prev => ({...prev, [matchId]: "error"}));
+      setTimeout(()=>setPredStatus(prev => ({...prev, [matchId]: "idle"})), 2500);
+    }
   }
   function getScore(participant){
     let pts=0;
@@ -549,14 +575,17 @@ export default function App() {
 
         {/* PRONÓSTICOS */}
         {view==="predicciones"&&filteredMatches.map(m=>{
-          const pred=appDb.predictions[`${user}_${m.id}`]||{h:"",a:""};
+          const savedPred=appDb.predictions[`${user}_${m.id}`]||{h:"",a:""};
+          const pred=editPredictions[m.id]||savedPred;
+          const status=predStatus[m.id]||"idle";
+          const hasUnsavedChanges = (pred.h!==savedPred.h) || (pred.a!==savedPred.a);
           const real=appDb.results[m.id]||appDb.results[String(m.id)];
-          const pts=pred.h!==""&&pred.a!==""&&real?calcPts(pred,real):null;
+          const pts=savedPred.h!==""&&savedPred.a!==""&&real?calcPts(savedPred,real):null;
           const played=real&&real.h!=="";
           const locked=isLocked(m.id, m.date);
           const manualLocked=appDb.locked[m.id];
           return (
-            <div key={m.id} style={{background:CARD,borderRadius:16,padding:"14px 16px",marginBottom:10,border:`1px solid ${locked?"rgba(255,255,255,0.08)":GC[m.g]+"40"}`,opacity:locked&&!pred.h?0.6:1}}>
+            <div key={m.id} style={{background:CARD,borderRadius:16,padding:"14px 16px",marginBottom:10,border:`1px solid ${locked?"rgba(255,255,255,0.08)":hasUnsavedChanges?"rgba(59,130,246,0.6)":GC[m.g]+"40"}`,opacity:locked&&!pred.h?0.6:1}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:11,flexWrap:"wrap",gap:6}}>
                 <span style={{background:m.phase?("#1d4ed8"):(GC[m.g]||"#64748b"),borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:800}}>{m.phase||`Grupo ${m.g}`}</span>
                 <span style={{color:"#7aadda",fontSize:12,fontWeight:600}}>{m.date}</span>
@@ -571,11 +600,11 @@ export default function App() {
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <input type="number" min="0" max="20" value={pred.h} disabled={locked}
-                    onChange={e=>!locked&&savePrediction(m.id,e.target.value,pred.a)}
+                    onChange={e=>!locked&&handlePredChange(m.id,"h",e.target.value)}
                     style={{...numInp,background:locked?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.1)",color:locked?"#445":"white",cursor:locked?"not-allowed":"text"}}/>
                   <span style={{color:"#4a7a9b",fontWeight:900,fontSize:18}}>–</span>
                   <input type="number" min="0" max="20" value={pred.a} disabled={locked}
-                    onChange={e=>!locked&&savePrediction(m.id,pred.h,e.target.value)}
+                    onChange={e=>!locked&&handlePredChange(m.id,"a",e.target.value)}
                     style={{...numInp,background:locked?"rgba(255,255,255,0.04)":"rgba(255,255,255,0.1)",color:locked?"#445":"white",cursor:locked?"not-allowed":"text"}}/>
                 </div>
                 <div style={{flex:1,textAlign:"left"}}>
@@ -583,6 +612,19 @@ export default function App() {
                   <div style={{fontSize:13,fontWeight:800,color:"white",marginTop:3}}>{m.a}</div>
                 </div>
               </div>
+              {!locked&&(
+                <div style={{display:"flex",justifyContent:"center",marginTop:12}}>
+                  <button onClick={()=>savePredictionClick(m.id)} disabled={status==="saving"}
+                    style={{
+                      padding:"9px 22px",borderRadius:10,border:"none",cursor:status==="saving"?"default":"pointer",
+                      fontWeight:800,fontSize:13,letterSpacing:0.5,
+                      background: status==="saved" ? "#22c55e" : status==="error" ? "#ef4444" : status==="saving" ? "rgba(29,111,184,0.4)" : (hasUnsavedChanges?"linear-gradient(90deg,#1d6fb8,#f97316)":"rgba(255,255,255,0.08)"),
+                      color: status==="idle"&&!hasUnsavedChanges ? "#7aadda" : "white"
+                    }}>
+                    {status==="saving" ? "⏳ Guardando..." : status==="saved" ? "✅ ¡Guardado!" : status==="error" ? "❌ Completa ambos marcadores" : hasUnsavedChanges ? "💾 Guardar pronóstico" : "✓ Guardado"}
+                  </button>
+                </div>
+              )}
               {locked&&!played&&<div style={{textAlign:"center",marginTop:8,fontSize:12,color:manualLocked?"#a78bfa":"#4a7a9b"}}>{manualLocked?"🔒 El administrador cerró las apuestas para este partido":"🔒 Pronósticos cerrados para este partido"}</div>}
               {played&&<div style={{textAlign:"center",marginTop:10,fontSize:13,color:"#7aadda",fontWeight:600}}>Resultado real: <b style={{color:"#4ade80",fontSize:15}}>{real.h} – {real.a}</b></div>}
             </div>
