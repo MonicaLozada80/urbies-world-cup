@@ -186,7 +186,7 @@ export default function App() {
   const [newMatchH, setNewMatchH] = useState("");
   const [newMatchA, setNewMatchA] = useState("");
   const [newMatchDate, setNewMatchDate] = useState("");
-  const [newMatchPhase, setNewMatchPhase] = useState("Octavos");
+  const [newMatchPhase, setNewMatchPhase] = useState("Dieciseisavos");
   const [matchMsg, setMatchMsg]   = useState("");
   // Pronósticos — edición local + botón Guardar explícito por partido
   const [editPredictions, setEditPredictions] = useState({});
@@ -553,13 +553,13 @@ export default function App() {
                   style={{padding:"6px 12px",borderRadius:20,border:"none",background:filterGroup===g?GC[g]:"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>{g}</button>
               ))}
             </div>
-            {["Octavos","Cuartos","Semifinal","3er Puesto","Final"].some(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase))&&(
+            {["Dieciseisavos","Octavos","Cuartos","Semifinal","3er Puesto","Final"].some(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase))&&(
               <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:6,borderTop:"1px solid rgba(255,255,255,0.08)"}}>
                 <span style={{color:"#7aadda",fontSize:11,fontWeight:700,padding:"6px 4px",alignSelf:"center"}}>Eliminatorias:</span>
-                {["Octavos","Cuartos","Semifinal","3er Puesto","Final"].filter(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase)).map(phase=>(
+                {["Dieciseisavos","Octavos","Cuartos","Semifinal","3er Puesto","Final"].filter(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase)).map(phase=>(
                   <button key={phase} onClick={()=>setFilterGroup(phase)}
                     style={{padding:"6px 12px",borderRadius:20,border:"1px solid rgba(29,111,184,0.4)",background:filterGroup===phase?"#1d6fb8":"rgba(29,111,184,0.15)",color:filterGroup===phase?"white":"#7aadda",cursor:"pointer",fontSize:12,fontWeight:700}}>
-                    {phase==="Octavos"?"⚔️ Octavos":phase==="Cuartos"?"🏅 Cuartos":phase==="Semifinal"?"🔥 Semifinal":phase==="3er Puesto"?"🥉 3er Puesto":"🏆 Final"}
+                    {phase==="Dieciseisavos"?"🏟️ Dieciseisavos":phase==="Octavos"?"⚔️ Octavos":phase==="Cuartos"?"🏅 Cuartos":phase==="Semifinal"?"🔥 Semifinal":phase==="3er Puesto"?"🥉 3er Puesto":"🏆 Final"}
                   </button>
                 ))}
               </div>
@@ -713,7 +713,7 @@ export default function App() {
         {/* GRUPOS */}
         {view==="grupos"&&(
           <div>
-            {(filterGroup==="ALL"||["Octavos","Cuartos","Semifinal","3er Puesto","Final"].includes(filterGroup))&&(appDb.extraMatches||[]).filter(m=>filterGroup==="ALL"||m.phase===filterGroup).length>0&&(
+            {(filterGroup==="ALL"||["Dieciseisavos","Octavos","Cuartos","Semifinal","3er Puesto","Final"].includes(filterGroup))&&(appDb.extraMatches||[]).filter(m=>filterGroup==="ALL"||m.phase===filterGroup).length>0&&(
               <div style={{background:CARD,borderRadius:16,padding:16,marginBottom:14,border:"1px solid rgba(29,111,184,0.4)"}}>
                 <div style={{marginBottom:12}}><span style={{background:"#1d6fb8",borderRadius:20,padding:"4px 14px",fontSize:12,fontWeight:800}}>⚔️ FASE ELIMINATORIA</span></div>
                 <div style={{borderTop:`1px solid ${BORDER}`,paddingTop:10}}>
@@ -772,11 +772,12 @@ export default function App() {
             {/* ── AGREGAR PARTIDOS ELIMINATORIAS ── */}
             <div style={{background:CARD,borderRadius:16,padding:18,marginBottom:16,border:"1px solid rgba(29,111,184,0.4)"}}>
               <h3 style={{color:"#60a5fa",fontSize:15,fontWeight:800,margin:"0 0 6px",letterSpacing:1}}>➕ AGREGAR PARTIDO (FASES ELIMINATORIAS)</h3>
-              <p style={{color:"#7aadda",fontSize:12,margin:"0 0 14px"}}>Agrega los partidos de Octavos, Cuartos, Semifinal y Final cuando se conozcan los clasificados.</p>
+              <p style={{color:"#7aadda",fontSize:12,margin:"0 0 14px"}}>Agrega los partidos de Dieciseisavos, Octavos, Cuartos, Semifinal y Final cuando se conozcan los clasificados.</p>
               {matchMsg&&<div style={{background:matchMsg.startsWith("✅")?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)",border:`1px solid ${matchMsg.startsWith("✅")?"rgba(74,222,128,0.4)":"rgba(248,113,113,0.4)"}`,borderRadius:10,padding:"10px",marginBottom:12,textAlign:"center",color:matchMsg.startsWith("✅")?"#4ade80":"#f87171",fontWeight:700}}>{matchMsg}</div>}
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
                 <select value={newMatchPhase} onChange={e=>setNewMatchPhase(e.target.value)}
                   style={{padding:"9px 12px",borderRadius:9,border:`1px solid ${BORDER}`,background:"rgba(255,255,255,0.08)",color:"white",fontSize:14,outline:"none"}}>
+                  <option value="Dieciseisavos">Dieciseisavos de final</option>
                   <option value="Octavos">Octavos de final</option>
                   <option value="Cuartos">Cuartos de final</option>
                   <option value="Semifinal">Semifinal</option>
@@ -828,7 +829,7 @@ export default function App() {
                   <button key={g} onClick={()=>setResFilterGroup(g)}
                     style={{padding:"5px 10px",borderRadius:20,border:"none",background:resFilterGroup===g?GC[g]:"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:11,fontWeight:700}}>{g}</button>
                 ))}
-                {["Octavos","Cuartos","Semifinal","3er Puesto","Final"].filter(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase)).map(phase=>(
+                {["Dieciseisavos","Octavos","Cuartos","Semifinal","3er Puesto","Final"].filter(phase=>(appDb.extraMatches||[]).some(m=>m.phase===phase)).map(phase=>(
                   <button key={phase} onClick={()=>setResFilterGroup(phase)}
                     style={{padding:"5px 10px",borderRadius:20,border:"none",background:resFilterGroup===phase?"#1d6fb8":"rgba(255,255,255,0.08)",color:"white",cursor:"pointer",fontSize:11,fontWeight:700}}>{phase}</button>
                 ))}
